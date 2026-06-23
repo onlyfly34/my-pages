@@ -18,19 +18,36 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # 關閉 CI 的「套件發布最短年齡」供應鏈政策，避免太新的相依被 frozen install 擋下。
-      NPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           # 若日後文章要用 git 時間戳，保留完整歷史。
           fetch-depth: 0
-      - name: Build Astro site
-        uses: withastro/action@v6
-        # withastro/action 會自動偵測 pnpm lockfile 並安裝、build。
-        # 預設 Node 24。輸出在 dist/，並上傳成 Pages artifact。
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # --config.minimumReleaseAge=0 以最高優先序的 CLI 設定，關閉 runner 的
+      # 「套件發布最短年齡」供應鏈政策（否則太新的開發相依會讓 frozen install 失敗）。
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --config.minimumReleaseAge=0
+
+      - name: Build site
+        run: pnpm build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
 
   deploy:
     needs: build
