@@ -1,0 +1,95 @@
+---
+/**
+ * 純 CSS/SVG 的訊號波形動畫（零 JS）。
+ * 一條沿著導線流動的訊號 + 一串資料封包；尊重 prefers-reduced-motion（停成靜態）。
+ */
+---
+
+<figure class="signal">
+  <svg
+    viewBox="0 0 600 120"
+    role="img"
+    aria-label="沿導線流動的訊號波形動畫"
+    preserveAspectRatio="xMidYMid meet"
+  >
+    <line x1="0" y1="60" x2="600" y2="60" class="rail"></line>
+    <path
+      class="wave"
+      d="M0,60 H80 l10,-34 l20,68 l20,-68 l20,68 l10,-34 H300 l10,-34 l20,68 l20,-68 l20,68 l10,-34 H600"
+    ></path>
+    <circle class="packet p1" r="5" cy="60"></circle>
+    <circle class="packet p2" r="5" cy="60"></circle>
+    <circle class="packet p3" r="5" cy="60"></circle>
+  </svg>
+  <figcaption>
+    純 CSS/SVG 動畫示意：零 JavaScript，且在「減少動態效果」偏好下會停成靜態。
+  </figcaption>
+</figure>
+
+<style>
+  .signal svg {
+    width: 100%;
+    height: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+  }
+  .rail {
+    stroke: var(--border-strong);
+    stroke-width: 2;
+  }
+  .wave {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-dasharray: 1400;
+    stroke-dashoffset: 1400;
+    animation: wave-draw 3.2s ease-in-out infinite alternate;
+    opacity: 0.85;
+  }
+  .packet {
+    fill: var(--byte-copied);
+    offset-path: path('M0,60 H600');
+    animation: packet-move 3s linear infinite;
+  }
+  .p2 {
+    animation-delay: 1s;
+    fill: var(--byte-nul);
+  }
+  .p3 {
+    animation-delay: 2s;
+    fill: var(--accent);
+  }
+  @keyframes wave-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes packet-move {
+    from {
+      offset-distance: 0%;
+    }
+    to {
+      offset-distance: 100%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wave {
+      stroke-dashoffset: 0;
+    }
+    .packet {
+      animation: none;
+    }
+    .p1 {
+      offset-distance: 20%;
+    }
+    .p2 {
+      offset-distance: 50%;
+    }
+    .p3 {
+      offset-distance: 80%;
+    }
+  }
+</style>

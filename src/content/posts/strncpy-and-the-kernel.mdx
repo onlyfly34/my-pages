@@ -1,0 +1,219 @@
+---
+title: strncpy() 在 Linux kernel 的退場，以及接手它的那群 API
+description: >-
+  Linux kernel 把 strncpy() 整個移除了。這篇用逐 byte 的互動動畫，看清楚 strncpy() 到底做了什麼、
+  為什麼危險，以及 strscpy / strscpy_pad / memtostr / strtomem / memcpy_and_pad 各自接手了哪一塊。
+  （提醒：user space 的 strncpy() 並沒有被移除。）
+pubDate: 2026-06-23
+tags:
+  - Linux
+  - C
+  - 系統程式
+  - 記憶體安全
+toc: true
+---
+
+import StrCopyAnimator from '../../components/islands/StrCopyAnimator.astro';
+
+某次翻 kernel 文件，看到這麼一段：
+
+> **strncpy()**
+>
+> strncpy() has been removed from the kernel. All former callers have been migrated to safer alternatives.
+>
+> strncpy() did not guarantee NUL-termination of the destination buffer, leading to linear read overflows and other misbehavior. It also unconditionally NUL-padded the destination, which was a needless performance penalty for callers using only NUL-terminated strings. Due to its various behaviors, it was an ambiguous API for determining what an author's true intent was for the copy.
+
+一個用了三十年的 C 函式，就這樣從 kernel 裡被連根拔除。這篇就來把這件事講清楚：`strncpy()` 到底做了什麼、為什麼非走不可、以及它留下的位置由哪些 API 接手。
+
+每一節都附一個**逐 byte 的互動動畫**，可以按「單步」一格一格看，或「播放」自動跑。看動畫比看文字快得多。
+
+## 先講最重要的一件事：被移除的是 kernel，不是 C 語言
+
+很容易被標題嚇到，所以先把範圍劃清楚：
+
+- **被移除的**是 **Linux kernel 內部**對 `strncpy()` 的使用與它在 kernel 裡的實作。kernel 是個對記憶體安全極度敏感的環境，它有本錢、也有義務把模稜兩可的工具換掉。
+- **沒有被移除的**是 **user space**（你寫的一般程式）所用的 `strncpy()`。它是 C 標準函式庫 / POSIX 的一部分，`glibc`、`musl` 都還提供，`man 3 strncpy` 也還在。你的程式照樣能編、能跑。
+
+換句話說：kernel 把自己家的 `strncpy()` 清掉了，並把所有呼叫點改寫成更精確的替代品；但 C 語言本身那個 `strncpy()` 仍然存在。理解 kernel 為什麼這樣做，對寫 user space 的人一樣有價值——因為它的那些坑，你在哪都會踩到。
+
+## strncpy() 到底做了什麼？
+
+`strncpy(dst, src, n)` 的行為其實是「兩條規則黏在一起」，而麻煩正來自這個組合：
+
+1. 從 `src` 最多複製 `n` 個 byte 到 `dst`。
+2. 如果 `src` 的內容（到 `\0` 為止）**短於** `n`，就用 `\0` 把 `dst` 剩下的位置**補滿**。
+3. 如果 `src` 的內容**長於或等於** `n`，複製滿 `n` 個 byte 後**就停手——不會幫你寫 `\0`**。
+
+先看「來源比較短」的情況。注意它怎麼補滿：
+
+<StrCopyAnimator
+  config={{ fn: 'strncpy', src: 'cat', srcKind: 'string', dstSize: 8, scenario: '來源比緩衝區短' }}
+/>
+
+複製完 `cat` 之後，剩下 5 個位置全被填上 `\0`。第一個 `\0` 讓字串能正確結尾（這是好事），但後面那 4 個 `\0` 是**多寫的**——對只用 NUL 結尾字串的人來說，這是白白付出的效能成本。緩衝區越大、這個浪費越明顯。
+
+再看「來源比較長」的情況，這才是真正的地雷：
+
+<StrCopyAnimator
+  config={{
+    fn: 'strncpy',
+    src: 'filesystem',
+    srcKind: 'string',
+    dstSize: 8,
+    scenario: '來源比緩衝區長（危險）',
+  }}
+/>
+
+`filesystem` 有 10 個字元，緩衝區只有 8。複製滿 8 個 byte 後，`strncpy()` 就收工了，**`dst` 裡完全沒有 `\0`**。接下來只要有人把 `dst` 當字串用（`strlen`、`printf("%s")`、`strcpy`……），就會一路往後讀，直到撞上某個剛好是 0 的 byte 為止——這就是文件講的 _linear read overflow_。
+
+## 所以它的問題可以歸成三條
+
+對照前面動畫，kernel 文件點名的三宗罪一目了然：
+
+- **不保證 NUL 結尾**：來源夠長時，`dst` 不是合法字串，當字串讀就越界。
+- **無條件補滿**：來源短時硬把整塊填 0，對字串用途是多餘的效能負擔。
+- **語意含糊**：光看 `strncpy(a, b, n)` 一行，讀者根本分不出作者要的是「字串」還是「定長欄位」、要不要補滿、能不能截斷。**意圖無法從程式碼讀出來**。
+
+替代方案的整個設計哲學，就是把這個含糊拆開：**讓每個函式只做一件意圖明確的事**。下面逐一看。
+
+## 目的地要當字串用 → strscpy / strscpy_pad
+
+這是最常見的情況：`dst` 是一個 C 字串，你要它**一定有 `\0` 結尾**。答案是 `strscpy()`。
+
+`strscpy(dst, src, n)` 的規則乾淨多了：複製到遇上 `\0` 或寫滿 `n-1` 個 byte 為止，然後**保證**補上一個 `\0`。它**不補滿**剩下的空間。看同樣的短來源，和 `strncpy` 對比：
+
+<StrCopyAnimator
+  config={{
+    fn: 'strscpy',
+    src: 'cat',
+    srcKind: 'string',
+    dstSize: 8,
+    scenario: '保證結尾，但不補滿',
+  }}
+/>
+
+`cat` + 一個 `\0` 就結束了，後面的 byte 維持原樣（動畫裡仍標成垃圾值）。因為有 `\0`，它已經是合法字串；省下的補滿動作就是省下的成本。
+
+它還多給了一個關鍵資訊：**回傳值**。成功時回傳複製了幾個 byte；**截斷時回傳負的 `-E2BIG`**。於是「有沒有裝不下」這件事第一次變得**可以被偵測**——這正是 `strncpy` 給不了的。
+
+那如果我**就是要**整塊都補 0 呢（例如一個會跨越權限邊界、要交給 user space 的結構欄位，不希望殘留 kernel 堆疊上的舊資料）？用 `strscpy_pad()`：保證結尾，**並且**把結尾之後補 0。
+
+<StrCopyAnimator
+  config={{
+    fn: 'strscpy_pad',
+    src: 'cat',
+    srcKind: 'string',
+    dstSize: 8,
+    scenario: '保證結尾 + 補滿 0',
+  }}
+/>
+
+同樣的輸入，`strscpy` 與 `strscpy_pad` 的差別一眼就看出來：要不要補滿，現在是**你在函式名稱上明講的決定**，而不是埋在 `strncpy` 的隱藏行為裡。
+
+## 來源是「定長、不保證有結尾」的資料 → memtostr / memtostr_pad
+
+反過來的情境：來源不是一個正常的 C 字串，而是一塊**固定寬度、可能沒有 `\0`** 的位元組（kernel 裡很多這種定長欄位，會用 `__nonstring` 屬性標記，告訴編譯器「這不是字串、別對它套字串假設」）。你想從中**造出一個合法字串**。
+
+`memtostr(dst, src)` 就是做這件事：從定長來源最多讀到它的寬度，複製到 `dst`，並補上 `\0`。
+
+<StrCopyAnimator
+  config={{
+    fn: 'memtostr',
+    src: 'DEVICE',
+    srcKind: 'fixed',
+    srcWidth: 6,
+    dstSize: 7,
+    scenario: '定長非字串 → 合法字串',
+  }}
+/>
+
+注意來源那排沒有紫色的 `∅`——它本來就沒有結尾。`memtostr` 的價值就是**幫你補上那個 `\0`**，把「裸資料」安全地變成可以交給 `strlen`/`printf` 的字串。
+
+需要連 `dst` 也補 0（定長字串欄位、要可預期內容）時，用 `memtostr_pad()`：
+
+<StrCopyAnimator
+  config={{
+    fn: 'memtostr_pad',
+    src: 'DEVICE',
+    srcKind: 'fixed',
+    srcWidth: 6,
+    dstSize: 8,
+    scenario: '轉成字串並補滿 0',
+  }}
+/>
+
+## 目的地本身就是「定長、非字串」欄位 → strtomem / strtomem_pad
+
+再換一個方向：來源是正常字串，但**目的地**是一個定長陣列，而且設計上**就不該有 `\0`**（例如某些協定或結構裡，名字就是要塞滿整個欄位，標了 `__nonstring`）。
+
+`strtomem(dst, src)`：把字串複製進定長欄位，**不寫 `\0`**，而且**不補滿**——剩下的 byte 維持原樣。
+
+<StrCopyAnimator
+  config={{
+    fn: 'strtomem',
+    src: 'eth0',
+    srcKind: 'string',
+    dstSize: 6,
+    scenario: 'dst 是定長非字串，不補',
+  }}
+/>
+
+如果這個定長欄位需要乾淨、可預期（不殘留舊值），用 `strtomem_pad()` 把不足的部分補 0：
+
+<StrCopyAnimator
+  config={{
+    fn: 'strtomem_pad',
+    src: 'eth0',
+    srcKind: 'string',
+    dstSize: 6,
+    scenario: '定長非字串，不足補 0',
+  }}
+/>
+
+看出對稱了嗎？
+
+- `memtostr*`：**非字串來源 → 字串目的地**（負責補上 `\0`）。
+- `strtomem*`：**字串來源 → 非字串目的地**（不碰 `\0`）。
+
+名字就是 `mem`（裸記憶體）和 `str`（字串）誰在前、誰在後，方向一看便知。這就是替代方案想要的：**意圖寫在名字上**。
+
+## 長度是執行期才知道的 bounded copy → memcpy_and_pad
+
+最後一塊拼圖：當這不太關乎「字串」，而是**純粹的定長複製**——來源可能沒有結尾，而且 `dst` 的大小是**執行期變數**（編譯期不知道）。這時用 `memcpy_and_pad(dst, dstlen, src, count, pad)`：複製 `count` 個 byte，若不足 `dstlen` 就用 `pad` 補滿尾端。
+
+<StrCopyAnimator
+  config={{
+    fn: 'memcpy_and_pad',
+    src: 'abc',
+    srcKind: 'fixed',
+    srcWidth: 3,
+    dstSize: 8,
+    count: 3,
+    scenario: '執行期長度的 bounded copy + 補 0',
+  }}
+/>
+
+它本質上就是「`memcpy` + 尾端補 0」，但把長度關係講明白，不沾任何字串語意。`strscpy_pad` 是它「保證結尾」的字串版近親；當你連結尾都不需要、只要一塊補滿的 buffer 時，`memcpy_and_pad` 才是對的工具。
+
+## 一張對照表：原本的 strncpy 該換成誰
+
+| 你原本用 strncpy 是想……                | 現在該用         | 會不會寫 `\0` | 會不會補滿 0 | 截斷可否偵測   |
+| -------------------------------------- | ---------------- | ------------- | ------------ | -------------- |
+| 複製出一個**字串**，要保證結尾         | `strscpy`        | 會            | 不會         | 會（`-E2BIG`） |
+| 同上，且要整塊補 0（跨權限邊界的結構） | `strscpy_pad`    | 會            | 會           | 會（`-E2BIG`） |
+| 從**定長非字串**來源造出字串           | `memtostr`       | 會            | 不會         | ——             |
+| 同上，且 dst 要補滿 0                  | `memtostr_pad`   | 會            | 會           | ——             |
+| 寫入一個**定長非字串**欄位             | `strtomem`       | 不會          | 不會         | ——             |
+| 同上，且要補滿 0                       | `strtomem_pad`   | 不會          | 會           | ——             |
+| 執行期長度的 bounded copy + 補 0       | `memcpy_and_pad` | 不會          | 會           | ——             |
+
+關鍵的觀念轉變：`strncpy` 把「複製多少、要不要結尾、要不要補滿」全糊成一個含糊的呼叫；新的這組 API 則逼你**在函式名稱上把意圖講清楚**。對 kernel 這種地方，意圖明確不是潔癖，是安全的前提。
+
+## 小結
+
+- Linux kernel 移除了 `strncpy()`，把所有呼叫點改寫成意圖明確的替代品。**user space 的 `strncpy()` 沒有被移除**。
+- `strncpy` 的三宗罪：**不保證結尾**、**無條件補滿**、**語意含糊**。
+- 替代方案沿著兩個軸切乾淨：目的地要不要當字串（`str` vs `mem`）、要不要補滿（`_pad`），再加上 `strscpy` 用回傳值讓**截斷變得可偵測**。
+- 自己的 user space 程式雖然還能用 `strncpy`，但同一套思路值得照搬：**用名字寫明意圖**，比省一行更重要。
+
+下次再寫到字串複製，先別反射性地敲 `strncpy`——先問自己一句：我到底要的是字串、還是一塊定長記憶體？答案會直接告訴你該叫哪個函式。

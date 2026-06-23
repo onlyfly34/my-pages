@@ -1,0 +1,72 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostCard from '../components/PostCard.astro';
+import { getPublishedPosts } from '../utils/posts';
+import { SITE } from '../config/site';
+import { withBase } from '../utils/path';
+
+const posts = await getPublishedPosts();
+const latest = posts.slice(0, 8);
+---
+
+<BaseLayout title={SITE.title}>
+  <section class="container hero">
+    <h1>{SITE.title}</h1>
+    <p class="lead muted">{SITE.description}</p>
+  </section>
+
+  <section class="container list">
+    <div class="list-head">
+      <h2>最新筆記</h2>
+      {posts.length > latest.length && <a href={withBase('/posts/')}>所有文章 →</a>}
+    </div>
+    {
+      latest.length === 0 ? (
+        <p class="muted">
+          還沒有文章。在 <code>src/content/posts/</code> 新增一個 <code>.mdx</code> 就會出現在這裡。
+        </p>
+      ) : (
+        latest.map((post) => <PostCard post={post} />)
+      )
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    max-width: var(--content-width);
+    margin-inline: auto;
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-6);
+  }
+  .hero h1 {
+    font-size: var(--text-3xl);
+    margin: 0 0 var(--space-3);
+    letter-spacing: -0.02em;
+  }
+  .lead {
+    font-size: var(--text-lg);
+    margin: 0;
+    max-width: 42ch;
+  }
+  .list {
+    max-width: var(--content-width);
+    margin-inline: auto;
+  }
+  .list-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+    padding-bottom: var(--space-2);
+  }
+  .list-head h2 {
+    font-size: var(--text-xl);
+    margin: 0;
+  }
+  .list-head a {
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+</style>

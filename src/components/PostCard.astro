@@ -1,0 +1,68 @@
+---
+import type { Post } from '../utils/posts';
+import { formatDate, isoDate } from '../utils/posts';
+import { readingTime } from '../utils/reading-time';
+import { postPath, tagPath } from '../utils/path';
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, tags } = post.data;
+const mins = readingTime(post.body ?? '');
+---
+
+<article class="post-card">
+  <h2 class="post-card-title">
+    <a href={postPath(post.id)}>{title}</a>
+  </h2>
+  <div class="post-card-meta muted">
+    <time datetime={isoDate(pubDate)}>{formatDate(pubDate)}</time>
+    <span aria-hidden="true">·</span>
+    <span>約 {mins} 分鐘</span>
+  </div>
+  <p class="post-card-desc">{description}</p>
+  {
+    tags.length > 0 && (
+      <ul class="tag-list">
+        {tags.map((t) => (
+          <li>
+            <a href={tagPath(t)} class="tag">
+              #{t}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</article>
+
+<style>
+  .post-card {
+    padding: var(--space-5) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .post-card-title {
+    font-size: var(--text-xl);
+    margin: 0 0 var(--space-2);
+  }
+  .post-card-title a {
+    color: var(--text);
+  }
+  .post-card-title a:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .post-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-3);
+  }
+  .post-card-desc {
+    margin: 0 0 var(--space-3);
+    color: var(--text-muted);
+  }
+</style>

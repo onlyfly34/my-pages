@@ -1,0 +1,50 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getPublishedPosts, getAllTags, type Post } from '../../utils/posts';
+import { withBase } from '../../utils/path';
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  const tags = getAllTags(posts);
+  return tags.map(({ tag }) => ({
+    params: { tag },
+    props: { tag, posts: posts.filter((p) => p.data.tags.includes(tag)) },
+  }));
+}
+
+interface Props {
+  tag: string;
+  posts: Post[];
+}
+const { tag, posts } = Astro.props;
+---
+
+<BaseLayout title={`#${tag}`} description={`標籤 ${tag} 的文章`}>
+  <section class="container wrap">
+    <header class="page-head">
+      <p class="muted"><a href={withBase('/posts/')}>← 所有文章</a></p>
+      <h1>#{tag}</h1>
+      <p class="muted">{posts.length} 篇文章</p>
+    </header>
+    <div class="post-list">
+      {posts.map((post) => <PostCard post={post} />)}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .wrap {
+    max-width: var(--content-width);
+    margin-inline: auto;
+  }
+  .page-head {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-3);
+  }
+  .page-head h1 {
+    font-size: var(--text-2xl);
+    margin: var(--space-2) 0;
+    font-family: var(--font-mono);
+  }
+</style>

@@ -1,0 +1,632 @@
+---
+/**
+ * StrCopyAnimator —— 記憶體 buffer 複製動畫。
+ *
+ * 把 strncpy 與 kernel 移除後的替代 API（strscpy / strscpy_pad / strtomem /
+ * strtomem_pad / memtostr / memtostr_pad / memcpy_and_pad）的逐 byte 行為，
+ * 精確模擬成可「單步 / 播放」的動畫。語意都實作在下方 simulate()，力求與真實行為一致。
+ *
+ * 用法（MDX）：
+ *   <StrCopyAnimator config={{ fn: 'strncpy', src: 'cat', srcKind: 'string', dstSize: 8,
+ *                              scenario: '來源短於緩衝區' }} />
+ */
+interface Cfg {
+  fn: string;
+  src: string;
+  srcKind?: 'string' | 'fixed';
+  srcWidth?: number;
+  embeddedNulAt?: number | null;
+  dstSize: number;
+  count?: number;
+  scenario?: string;
+  introNote?: string;
+}
+interface Props {
+  config: Cfg;
+}
+const { config } = Astro.props;
+---
+
+<str-copy-anim data-config={JSON.stringify(config)}>
+  <p class="sca-fallback">（這個互動動畫需要啟用 JavaScript 才能播放）</p>
+</str-copy-anim>
+
+<style is:global>
+  .sca {
+    --cell: 2.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: var(--space-4);
+    margin: var(--space-5) 0;
+    font-size: var(--text-sm);
+  }
+  .sca-fallback {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+  .sca-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .sca-sig {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--text);
+    font-size: var(--text-sm);
+  }
+  .sca-scn {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  .sca-buf {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin: var(--space-2) 0;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .sca-buf-label {
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    width: 2.2rem;
+    flex: none;
+    padding-top: 0.45rem;
+    text-align: right;
+  }
+  .sca-cols {
+    display: flex;
+    gap: 4px;
+  }
+  .sca-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .sca-cell {
+    width: var(--cell);
+    height: var(--cell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid transparent;
+    background: var(--bg);
+    transition:
+      background-color 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.18s ease;
+  }
+  .sca-idx {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-muted);
+  }
+  .sca-col.cursor .sca-cell {
+    transform: translateY(-3px);
+    box-shadow: 0 3px 0 0 var(--accent);
+  }
+  /* byte 種類配色 */
+  .kind-empty {
+    color: var(--byte-garbage);
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      color-mix(in srgb, var(--byte-garbage) 18%, transparent) 4px,
+      color-mix(in srgb, var(--byte-garbage) 18%, transparent) 8px
+    );
+    border-color: color-mix(in srgb, var(--byte-garbage) 35%, transparent);
+  }
+  .kind-garbage {
+    color: var(--byte-garbage);
+    border-color: color-mix(in srgb, var(--byte-garbage) 35%, transparent);
+    background: color-mix(in srgb, var(--byte-garbage) 10%, transparent);
+  }
+  .kind-data {
+    color: #fff;
+    background: var(--byte-copied);
+    border-color: var(--byte-copied);
+  }
+  .kind-nul {
+    color: #fff;
+    background: var(--byte-nul);
+    border-color: var(--byte-nul);
+  }
+  .kind-pad {
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--byte-pad) 22%, transparent);
+    border-color: color-mix(in srgb, var(--byte-pad) 45%, transparent);
+  }
+  .sca-cell.danger {
+    color: #fff;
+    background: var(--byte-danger);
+    border-color: var(--byte-danger);
+    animation: sca-pulse 1s ease-in-out infinite;
+  }
+  @keyframes sca-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--byte-danger) 60%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 5px transparent;
+    }
+  }
+  .sca-note {
+    min-height: 2.6em;
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    line-height: 1.55;
+  }
+  .sca-note.danger {
+    border-color: var(--byte-danger);
+    color: var(--byte-danger);
+  }
+  .sca-ret {
+    min-height: 1.4em;
+    margin-top: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .sca-ctrls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    align-items: center;
+  }
+  .sca-btn {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .sca-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .sca-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .sca-btn.primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: #fff;
+  }
+  .sca-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .sca-progress {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .sca-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .sca-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sca-dot {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 3px;
+    display: inline-block;
+  }
+</style>
+
+<script>
+  // @ts-nocheck
+  function dispChar(ch) {
+    if (ch === ' ') return '␣';
+    return ch;
+  }
+  function glyph(c) {
+    if (c.kind === 'empty' || c.kind === 'garbage') return '?';
+    if (c.kind === 'nul') return '∅';
+    if (c.kind === 'pad') return '0';
+    return dispChar(c.ch);
+  }
+  function q(s) {
+    return '"' + s + '"';
+  }
+
+  // 依設定建立「來源」的視覺化 cell（含是否有 \0、是否為定長非字串）
+  function buildSrcCells(cfg) {
+    const content = [...cfg.src];
+    const L = content.length;
+    const cells = [];
+    if (cfg.srcKind === 'fixed') {
+      const w = cfg.srcWidth ?? L;
+      for (let i = 0; i < w; i++) {
+        if (cfg.embeddedNulAt != null) {
+          if (i < cfg.embeddedNulAt) cells.push({ ch: content[i] ?? '?', kind: 'data' });
+          else if (i === cfg.embeddedNulAt) cells.push({ ch: '∅', kind: 'nul' });
+          else cells.push({ ch: content[i] ?? '?', kind: 'garbage' });
+        } else {
+          cells.push(i < L ? { ch: content[i], kind: 'data' } : { ch: '?', kind: 'garbage' });
+        }
+      }
+    } else {
+      for (let i = 0; i < L; i++) cells.push({ ch: content[i], kind: 'data' });
+      cells.push({ ch: '∅', kind: 'nul' });
+    }
+    return cells;
+  }
+
+  // 模擬一個函式的逐步行為，回傳 { sig, frames, srcCells }
+  function simulate(cfg) {
+    const content = [...cfg.src];
+    const L = content.length;
+    const N = cfg.dstSize;
+    const srcChar = (i) => content[i] ?? '?';
+    const readLimit =
+      cfg.srcKind === 'fixed'
+        ? cfg.embeddedNulAt != null
+          ? cfg.embeddedNulAt
+          : (cfg.srcWidth ?? L)
+        : L;
+
+    const d = Array.from({ length: N }, () => ({ ch: '?', kind: 'empty' }));
+    const frames = [];
+    const push = (note, cs, cd, extra) =>
+      frames.push({
+        dst: d.map((c) => ({ ...c })),
+        note,
+        cursorSrc: cs ?? null,
+        cursorDst: cd ?? null,
+        ...(extra || {}),
+      });
+    const setData = (i, ch) => (d[i] = { ch, kind: 'data' });
+    const setNul = (i) => (d[i] = { ch: '∅', kind: 'nul' });
+    const setPad = (i) => (d[i] = { ch: '0', kind: 'pad' });
+
+    push(cfg.introNote || '初始狀態：dst 是還沒寫入的記憶體，內容是不可預期的垃圾值。', null, null);
+
+    let sig = cfg.fn + '(...)';
+
+    switch (cfg.fn) {
+      case 'strncpy': {
+        sig = `strncpy(dst, ${q(cfg.src)}, ${N})`;
+        const n = N;
+        let i = 0;
+        for (; i < Math.min(readLimit, n); i++) {
+          setData(i, content[i]);
+          push(`複製 src[${i}] = '${dispChar(content[i])}' → dst[${i}]`, i, i);
+        }
+        if (readLimit < n) {
+          let first = true;
+          for (let j = i; j < n; j++) {
+            if (first) {
+              setNul(j);
+              push(`來源到底了，補一個 \\0 → dst[${j}]（這個 \\0 讓字串能合法結尾）`, readLimit, j);
+              first = false;
+            } else {
+              setPad(j);
+              push(`strncpy 會把整個緩衝區補滿 \\0：dst[${j}] = 0`, null, j);
+            }
+          }
+          push('結果：有 \\0 結尾、其後再補滿 0。安全，但補滿是多餘的效能成本。', null, null, {
+            ret: 'char * （回傳 dst 指標，無長度資訊）',
+          });
+        } else {
+          push(`已經複製滿 ${n} 個 byte，strncpy 不會再幫你寫 \\0。`, null, null, {
+            danger: true,
+            dangerIdx: n - 1,
+          });
+          push(
+            '結果：dst 沒有 \\0 結尾！後面任何把它當字串讀的程式都會越界讀取。這就是 strncpy 最惡名昭彰的地雷。',
+            null,
+            null,
+            { ret: 'char *（無法分辨是否被截斷）', danger: true },
+          );
+        }
+        break;
+      }
+
+      case 'strscpy':
+      case 'strscpy_pad': {
+        const pad = cfg.fn === 'strscpy_pad';
+        sig = `${cfg.fn}(dst, ${q(cfg.src)}, ${N})`;
+        const limit = N - 1;
+        let i = 0;
+        for (; i < limit && i < readLimit; i++) {
+          setData(i, content[i]);
+          push(`複製 src[${i}] = '${dispChar(content[i])}' → dst[${i}]`, i, i);
+        }
+        setNul(i);
+        push(`寫入結尾 \\0 → dst[${i}]。strscpy 一定保證 NUL 結尾。`, null, i);
+        const truncated = readLimit > limit;
+        if (pad) {
+          for (let j = i + 1; j < N; j++) {
+            setPad(j);
+            push(`_pad 版本把結尾之後也清成 0：dst[${j}] = 0`, null, j);
+          }
+        }
+        if (truncated) {
+          push(
+            pad
+              ? '來源比緩衝區長 → 截斷，但仍是合法字串，且整塊已清乾淨。'
+              : '來源比緩衝區長 → 截斷，但仍是合法字串（結尾後的 byte 不動）。',
+            null,
+            null,
+            { ret: 'ssize_t = -E2BIG（負值代表被截斷，呼叫端可偵測）' },
+          );
+        } else {
+          push(
+            pad
+              ? '複製完成並補 0。適合會跨權限邊界、需要可預期內容的結構欄位。'
+              : '複製完成。結尾之後的 byte 不補、維持原樣 —— 有 \\0 就是合法字串，省下補滿成本。',
+            null,
+            null,
+            { ret: `ssize_t = ${i}（複製的 byte 數，不含 \\0）` },
+          );
+        }
+        break;
+      }
+
+      case 'strtomem':
+      case 'strtomem_pad': {
+        const pad = cfg.fn === 'strtomem_pad';
+        sig = pad
+          ? `strtomem_pad(dst, ${q(cfg.src)}, 0)   // dst: char[${N}] __nonstring`
+          : `strtomem(dst, ${q(cfg.src)})   // dst: char[${N}] __nonstring`;
+        const m = Math.min(readLimit, N);
+        let i = 0;
+        for (; i < m; i++) {
+          setData(i, content[i]);
+          push(`複製 src[${i}] = '${dispChar(content[i])}' → dst[${i}]`, i, i);
+        }
+        const truncated = readLimit > N;
+        if (pad && !truncated) {
+          for (let j = i; j < N; j++) {
+            setPad(j);
+            push(`不足的部分補 0：dst[${j}] = 0`, null, j);
+          }
+        }
+        if (truncated) {
+          push(
+            '來源 ≥ 緩衝區：剛好填滿整個定長欄位，沒有也不需要 \\0（dst 標了 __nonstring，本來就不是字串）。',
+            null,
+            null,
+            { ret: 'void（dst 是定長、非字串欄位）' },
+          );
+        } else if (pad) {
+          push(
+            '剩餘補 0。這正是 strncpy「複製＋補滿」行為的正當替身：明確宣告 dst 是定長非字串欄位。',
+            null,
+            null,
+            { ret: 'void' },
+          );
+        } else {
+          push(
+            'strtomem 不補 0：剩餘 byte 維持原樣。當定長欄位不在乎尾端內容時，這樣最省。',
+            null,
+            null,
+            { ret: 'void（dst 為 __nonstring，不保證 \\0）' },
+          );
+        }
+        break;
+      }
+
+      case 'memtostr':
+      case 'memtostr_pad': {
+        const pad = cfg.fn === 'memtostr_pad';
+        sig = `${cfg.fn}(dst, src)   // src: char[${cfg.srcWidth ?? L}] __nonstring`;
+        const limit = N - 1;
+        let i = 0;
+        for (; i < limit && i < readLimit; i++) {
+          setData(i, srcChar(i));
+          push(`從定長 src 複製 src[${i}] = '${dispChar(srcChar(i))}' → dst[${i}]`, i, i);
+        }
+        setNul(i);
+        push(`補上 \\0 → dst[${i}]：把「沒有保證結尾的定長資料」轉成合法 C 字串。`, null, i);
+        if (pad) {
+          for (let j = i + 1; j < N; j++) {
+            setPad(j);
+            push(`_pad 版本把其餘 byte 補 0：dst[${j}] = 0`, null, j);
+          }
+        }
+        push(
+          '結果：dst 是有 \\0 的合法字串，可以安全交給 printf / strlen 等字串函式。',
+          null,
+          null,
+          { ret: pad ? 'char *（已結尾並補 0）' : 'char *（已 NUL 結尾的字串）' },
+        );
+        break;
+      }
+
+      case 'memcpy_and_pad': {
+        const count = cfg.count ?? L;
+        sig = `memcpy_and_pad(dst, ${N}, src, ${count}, 0)`;
+        const m = Math.min(count, N);
+        let i = 0;
+        for (; i < m; i++) {
+          setData(i, srcChar(i));
+          push(
+            `複製 src[${i}] = '${dispChar(srcChar(i))}' → dst[${i}]（共要複製 count=${count}）`,
+            i,
+            i,
+          );
+        }
+        if (count < N) {
+          for (let j = count; j < N; j++) {
+            setPad(j);
+            push(`count(${count}) < dstlen(${N})，尾端補 0：dst[${j}] = 0`, null, j);
+          }
+          push(
+            '結果：前 count 個 byte 是資料、其餘補 0。注意 count 與 dstlen 都是執行期才知道的值。',
+            null,
+            null,
+            {
+              ret: 'void *（回傳 dst）',
+            },
+          );
+        } else {
+          push(
+            `count(${count}) ≥ dstlen(${N})：只複製 dstlen 個 byte，其餘被截斷、不補。`,
+            null,
+            null,
+            {
+              ret: 'void *（回傳 dst）',
+            },
+          );
+        }
+        break;
+      }
+    }
+
+    return { sig, frames, srcCells: buildSrcCells(cfg) };
+  }
+
+  class StrCopyAnim extends HTMLElement {
+    connectedCallback() {
+      let cfg;
+      try {
+        cfg = JSON.parse(this.getAttribute('data-config') || '{}');
+      } catch {
+        return;
+      }
+      const sim = simulate(cfg);
+      this.reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      this.frames = sim.frames;
+      this.timer = null;
+
+      const colHTML = (cells) =>
+        cells
+          .map(
+            (c, i) =>
+              `<div class="sca-col" data-i="${i}"><div class="sca-cell kind-${c.kind}">${glyph(c)}</div><div class="sca-idx">${i}</div></div>`,
+          )
+          .join('');
+
+      this.innerHTML = `
+        <div class="sca">
+          <div class="sca-head">
+            <span class="sca-sig">${sim.sig}</span>
+            ${cfg.scenario ? `<span class="sca-scn">情境：${cfg.scenario}</span>` : ''}
+          </div>
+          <div class="sca-buf"><span class="sca-buf-label">src</span><div class="sca-cols src">${colHTML(sim.srcCells)}</div></div>
+          <div class="sca-buf"><span class="sca-buf-label">dst</span><div class="sca-cols dst">${colHTML(this.frames[0].dst)}</div></div>
+          <div class="sca-note"></div>
+          <div class="sca-ret"></div>
+          <div class="sca-ctrls">
+            <button class="sca-btn" data-act="reset">⟲ 重設</button>
+            <button class="sca-btn" data-act="step">▶ 單步</button>
+            <button class="sca-btn primary" data-act="play">▶▶ 播放</button>
+            <span class="sca-progress"></span>
+          </div>
+          <div class="sca-legend">
+            <span><i class="sca-dot" style="background:var(--byte-copied)"></i>複製的資料</span>
+            <span><i class="sca-dot" style="background:var(--byte-nul)"></i>\\0 結尾</span>
+            <span><i class="sca-dot" style="background:color-mix(in srgb,var(--byte-pad) 45%,transparent)"></i>補 0</span>
+            <span><i class="sca-dot" style="background:color-mix(in srgb,var(--byte-garbage) 35%,transparent)"></i>未初始化 / 垃圾值</span>
+          </div>
+        </div>`;
+
+      this.dstCols = [...this.querySelectorAll('.sca-cols.dst .sca-col')];
+      this.dstCells = this.dstCols.map((col) => col.querySelector('.sca-cell'));
+      this.srcCols = [...this.querySelectorAll('.sca-cols.src .sca-col')];
+      this.noteEl = this.querySelector('.sca-note');
+      this.retEl = this.querySelector('.sca-ret');
+      this.progressEl = this.querySelector('.sca-progress');
+      this.stepBtn = this.querySelector('[data-act="step"]');
+      this.playBtn = this.querySelector('[data-act="play"]');
+
+      this.querySelector('[data-act="reset"]').addEventListener('click', () => {
+        this.stop();
+        this.goto(0);
+      });
+      this.stepBtn.addEventListener('click', () => {
+        this.stop();
+        this.goto(Math.min(this.frame + 1, this.frames.length - 1));
+      });
+      this.playBtn.addEventListener('click', () => this.play());
+
+      this.goto(this.reduce ? this.frames.length - 1 : 0);
+      if (this.reduce) this.playBtn.style.display = 'none';
+    }
+
+    goto(n) {
+      this.frame = n;
+      const f = this.frames[n];
+      f.dst.forEach((c, i) => {
+        const el = this.dstCells[i];
+        el.className = 'sca-cell kind-' + c.kind + (f.dangerIdx === i ? ' danger' : '');
+        el.textContent = glyph(c);
+      });
+      this.srcCols.forEach((el, i) => el.classList.toggle('cursor', f.cursorSrc === i));
+      this.dstCols.forEach((el, i) => el.classList.toggle('cursor', f.cursorDst === i));
+      this.noteEl.textContent = f.note;
+      this.noteEl.classList.toggle('danger', !!f.danger);
+      this.retEl.textContent = f.ret ? '回傳 / 結果：' + f.ret : '';
+      this.progressEl.textContent = `${n} / ${this.frames.length - 1}`;
+      const atEnd = n >= this.frames.length - 1;
+      this.stepBtn.disabled = atEnd;
+      if (atEnd) this.stop();
+    }
+
+    play() {
+      this.stop();
+      if (this.frame >= this.frames.length - 1) this.goto(0);
+      if (this.reduce) {
+        this.goto(this.frames.length - 1);
+        return;
+      }
+      this.playBtn.textContent = '⏸ 暫停';
+      this.playing = true;
+      this.timer = window.setInterval(() => {
+        if (this.frame >= this.frames.length - 1) {
+          this.stop();
+          return;
+        }
+        this.goto(this.frame + 1);
+      }, 750);
+    }
+
+    stop() {
+      if (this.timer) {
+        window.clearInterval(this.timer);
+        this.timer = null;
+      }
+      this.playing = false;
+      if (this.playBtn) this.playBtn.textContent = '▶▶ 播放';
+    }
+
+    disconnectedCallback() {
+      this.stop();
+    }
+  }
+
+  if (!customElements.get('str-copy-anim')) {
+    customElements.define('str-copy-anim', StrCopyAnim);
+  }
+</script>

@@ -1,0 +1,22 @@
+import rss from '@astrojs/rss';
+import type { APIContext } from 'astro';
+import { getPublishedPosts } from '../utils/posts';
+import { SITE } from '../config/site';
+import { postPath } from '../utils/path';
+
+export async function GET(context: APIContext) {
+  const posts = await getPublishedPosts();
+  return rss({
+    title: SITE.title,
+    description: SITE.description,
+    site: context.site ?? SITE.links.github,
+    items: posts.map((post) => ({
+      title: post.data.title,
+      description: post.data.description,
+      pubDate: post.data.pubDate,
+      link: postPath(post.id),
+      categories: post.data.tags,
+    })),
+    customData: `<language>zh-tw</language>`,
+  });
+}

@@ -1,0 +1,57 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE } from '../config/site';
+import { withBase } from '../utils/path';
+---
+
+<BaseLayout title="關於" description="關於這個站">
+  <section class="container prose-page">
+    <h1>關於</h1>
+    <p>
+      這裡是 <strong>{SITE.author}</strong> 的技術筆記站，主題集中在系統程式、韌體與底層工程： 把讀過的原始碼、踩過的坑、想通的細節，一篇一篇寫清楚。
+    </p>
+    <p>
+      文章以靜態頁面為主，必要時會在內文嵌入互動動畫與圖表，幫助說明那些「用文字很難講清楚、
+      一動起來就懂了」的概念。每篇文章底部都可以留言（以 GitHub Discussions 為基礎）。
+    </p>
+    <h2>怎麼閱讀</h2>
+    <ul>
+      <li>到 <a href={withBase('/posts/')}>文章列表</a> 看全部筆記，或用標籤篩選。</li>
+      <li>右上角可切換深淺色模式。</li>
+      <li>想追蹤更新，可訂閱 <a href={withBase('/rss.xml')}>RSS</a>。</li>
+    </ul>
+    <h2>聯絡</h2>
+    <p>
+      原始碼與 issue 都在 <a href={SITE.links.github} target="_blank" rel="noopener noreferrer"
+        >GitHub</a
+      >。 內容有誤或想補充，歡迎在對應文章底下留言，或直接發 PR。
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .prose-page {
+    max-width: var(--content-width);
+    margin-inline: auto;
+    padding-top: var(--space-8);
+    font-size: var(--text-lg);
+    line-height: 1.78;
+  }
+  .prose-page h1 {
+    font-size: var(--text-2xl);
+    margin-bottom: var(--space-4);
+  }
+  .prose-page h2 {
+    font-size: var(--text-xl);
+    margin-top: var(--space-6);
+  }
+  .prose-page > * + * {
+    margin-top: var(--space-4);
+  }
+  .prose-page ul {
+    padding-left: 1.4em;
+  }
+  .prose-page li + li {
+    margin-top: var(--space-2);
+  }
+</style>

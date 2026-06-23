@@ -1,0 +1,83 @@
+---
+import { GISCUS, giscusConfigured } from '../config/giscus';
+---
+
+{
+  giscusConfigured ? (
+    <section class="giscus-wrap" aria-label="留言區">
+      <div class="giscus" />
+    </section>
+  ) : (
+    <aside class="giscus-fallback">
+      <p class="muted">
+        💬 留言功能尚未設定。維護者依 README 完成 Giscus 設定（填入 <code>repoId</code> 與{' '}
+        <code>categoryId</code>）後，這裡會出現以 GitHub Discussions 為基礎的留言區。
+      </p>
+    </aside>
+  )
+}
+
+<script
+  is:inline
+  define:vars={{
+    configured: giscusConfigured,
+    repo: GISCUS.repo,
+    repoId: GISCUS.repoId,
+    category: GISCUS.category,
+    categoryId: GISCUS.categoryId,
+    mapping: GISCUS.mapping,
+    reactionsEnabled: GISCUS.reactionsEnabled,
+    emitMetadata: GISCUS.emitMetadata,
+    inputPosition: GISCUS.inputPosition,
+    lang: GISCUS.lang,
+    loading: GISCUS.loading,
+  }}
+>
+  (function () {
+    if (!configured) return;
+    const mount = document.querySelector('.giscus');
+    if (!mount) return;
+    const dark = document.documentElement.classList.contains('dark');
+    const s = document.createElement('script');
+    s.src = 'https://giscus.app/client.js';
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.setAttribute('data-repo', repo);
+    s.setAttribute('data-repo-id', repoId);
+    s.setAttribute('data-category', category);
+    s.setAttribute('data-category-id', categoryId);
+    s.setAttribute('data-mapping', mapping);
+    s.setAttribute('data-strict', '0');
+    s.setAttribute('data-reactions-enabled', reactionsEnabled);
+    s.setAttribute('data-emit-metadata', emitMetadata);
+    s.setAttribute('data-input-position', inputPosition);
+    s.setAttribute('data-theme', dark ? 'dark' : 'light');
+    s.setAttribute('data-lang', lang);
+    s.setAttribute('data-loading', loading);
+    mount.appendChild(s);
+    window.addEventListener('theme-change', function (e) {
+      const frame = document.querySelector('iframe.giscus-frame');
+      if (!frame) return;
+      frame.contentWindow.postMessage(
+        { giscus: { setConfig: { theme: e.detail.dark ? 'dark' : 'light' } } },
+        'https://giscus.app',
+      );
+    });
+  })();
+</script>
+
+<style>
+  .giscus-wrap,
+  .giscus-fallback {
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border);
+  }
+  .giscus-fallback p {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: var(--space-4);
+    font-size: var(--text-sm);
+  }
+</style>

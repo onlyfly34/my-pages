@@ -1,0 +1,91 @@
+---
+import { withBase } from '../utils/path';
+import { SITE } from '../config/site';
+import ThemeToggle from './ThemeToggle.astro';
+
+const nav = [
+  { href: withBase('/'), label: '首頁' },
+  { href: withBase('/posts/'), label: '文章' },
+  { href: withBase('/about/'), label: '關於' },
+];
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const home = withBase('/').replace(/\/$/, '') || '/';
+const isActive = (href: string) => {
+  const h = href.replace(/\/$/, '') || '/';
+  return h === home ? path === home : path === h || path.startsWith(h + '/');
+};
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href={withBase('/')}>{SITE.title}</a>
+    <nav class="nav" aria-label="主導覽">
+      {
+        nav.map((item) => (
+          <a
+            href={item.href}
+            class:list={['nav-link', { active: isActive(item.href) }]}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+      <ThemeToggle />
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 3.5rem;
+    gap: var(--space-4);
+  }
+  .brand {
+    font-weight: 800;
+    font-size: var(--text-lg);
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .brand:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .nav-link {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  .nav-link:hover {
+    color: var(--text);
+    background: var(--surface);
+    text-decoration: none;
+  }
+  .nav-link.active {
+    color: var(--accent);
+  }
+  @media (max-width: 480px) {
+    .nav-link {
+      padding: var(--space-2);
+    }
+  }
+</style>
