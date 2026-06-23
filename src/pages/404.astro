@@ -1,0 +1,45 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../utils/path';
+---
+
+<BaseLayout title="找不到頁面" description="404">
+  <section class="container notfound">
+    <p class="code">404</p>
+    <h1>這裡什麼也沒有</h1>
+    <p class="muted">頁面可能被移動、改名，或從來就不存在。</p>
+    <p>
+      <a href={withBase('/')}>← 回首頁</a>
+      <span aria-hidden="true">·</span>
+      <a href={withBase('/posts/')}>看文章列表</a>
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .notfound {
+    max-width: var(--content-width);
+    margin-inline: auto;
+    padding-top: var(--space-10);
+    text-align: center;
+  }
+  .code {
+    font-family: var(--font-mono);
+    font-size: 4rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 0;
+    line-height: 1;
+  }
+  .notfound h1 {
+    font-size: var(--text-2xl);
+    margin: var(--space-4) 0 var(--space-2);
+  }
+  .notfound p + p {
+    margin-top: var(--space-3);
+  }
+  .notfound a {
+    margin: 0 var(--space-2);
+    font-weight: 600;
+  }
+</style>

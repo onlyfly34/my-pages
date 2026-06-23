@@ -1,0 +1,122 @@
+---
+import type { MarkdownHeading } from 'astro';
+import type { Post } from '../utils/posts';
+import BaseLayout from './BaseLayout.astro';
+import TableOfContents from '../components/TableOfContents.astro';
+import Giscus from '../components/Giscus.astro';
+import { formatDate, isoDate } from '../utils/posts';
+import { readingTime } from '../utils/reading-time';
+import { tagPath } from '../utils/path';
+
+interface Props {
+  post: Post;
+  headings: MarkdownHeading[];
+}
+
+const { post, headings } = Astro.props;
+const { title, description, pubDate, updatedDate, tags, toc, heroImage } = post.data;
+const mins = readingTime(post.body ?? '');
+const showToc = toc && headings.some((h) => h.depth === 2 || h.depth === 3);
+---
+
+<BaseLayout title={title} description={description} image={heroImage}>
+  <div class="post">
+    <header class="post-header">
+      <h1>{title}</h1>
+      <div class="post-meta muted">
+        <time datetime={isoDate(pubDate)}>{formatDate(pubDate)}</time>
+        <span aria-hidden="true">·</span>
+        <span>約 {mins} 分鐘</span>
+        {updatedDate && <span>· 更新於 {formatDate(updatedDate)}</span>}
+      </div>
+      {
+        tags.length > 0 && (
+          <ul class="tag-list post-tags">
+            {tags.map((t) => (
+              <li>
+                <a class="tag" href={tagPath(t)}>
+                  #{t}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+
+    <div class:list={['post-body', { 'has-toc': showToc }]}>
+      <article class="prose post-content">
+        <slot />
+      </article>
+      {
+        showToc && (
+          <aside class="post-toc">
+            <div class="post-toc-inner">
+              <TableOfContents headings={headings} />
+            </div>
+          </aside>
+        )
+      }
+    </div>
+
+    <div class="post-comments">
+      <Giscus />
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .post {
+    max-width: var(--content-width);
+    margin-inline: auto;
+    padding-inline: var(--space-5);
+    padding-top: var(--space-8);
+  }
+  .post-header {
+    margin-bottom: var(--space-6);
+  }
+  .post-header h1 {
+    font-size: var(--text-3xl);
+    margin: 0 0 var(--space-3);
+  }
+  .post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .post-tags {
+    margin-top: var(--space-3);
+  }
+  .post-content {
+    min-width: 0;
+  }
+  .post-comments,
+  .post-content {
+    max-width: var(--content-width);
+  }
+
+  /* 寬螢幕：右側顯示 sticky 目錄，內文與標題左對齊 */
+  @media (min-width: 1080px) {
+    .post {
+      max-width: calc(var(--content-width) + 15rem + var(--space-8));
+    }
+    .post-body.has-toc {
+      display: grid;
+      grid-template-columns: minmax(0, var(--content-width)) 15rem;
+      gap: var(--space-8);
+      align-items: start;
+    }
+    .post-toc-inner {
+      position: sticky;
+      top: 5rem;
+      max-height: calc(100vh - 6rem);
+      overflow-y: auto;
+    }
+  }
+  @media (max-width: 1079px) {
+    .post-toc {
+      display: none;
+    }
+  }
+</style>

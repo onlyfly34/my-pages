@@ -1,0 +1,43 @@
+---
+import { withBase } from '../utils/path';
+import { SITE } from '../config/site';
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <p class="muted">© {year} {SITE.author} · 以 Astro 建置，部署於 GitHub Pages</p>
+    <nav class="footer-links" aria-label="頁尾連結">
+      <a href={withBase('/rss.xml')}>RSS</a>
+      <a href={SITE.links.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href={withBase('/about/')}>關於</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--border);
+    margin-top: var(--space-10);
+    padding: var(--space-6) 0;
+    font-size: var(--text-sm);
+  }
+  .footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .footer-links {
+    display: flex;
+    gap: var(--space-4);
+  }
+  .footer-links a {
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .footer-links a:hover {
+    color: var(--accent);
+  }
+</style>

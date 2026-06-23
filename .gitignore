@@ -1,0 +1,19 @@
+# build output
+dist/
+# generated types
+.astro/
+# dependencies
+node_modules/
+# comment export output (see scripts/export-comments.mjs)
+exports/
+# environment
+.env
+.env.production
+.env.*.local
+# logs
+npm-debug.log*
+pnpm-debug.log*
+# editor / OS
+.DS_Store
+.vscode/
+.idea/
