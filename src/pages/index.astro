@@ -1,12 +1,12 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PostCard from '../components/PostCard.astro';
-import { getPublishedPosts } from '../utils/posts';
+import { getPublishedPosts, getAllTags } from '../utils/posts';
 import { SITE } from '../config/site';
-import { withBase } from '../utils/path';
+import { tagPath } from '../utils/path';
 
 const posts = await getPublishedPosts();
-const latest = posts.slice(0, 8);
+const tags = getAllTags(posts);
 ---
 
 <BaseLayout title={SITE.title}>
@@ -16,17 +16,31 @@ const latest = posts.slice(0, 8);
   </section>
 
   <section class="container list">
-    <div class="list-head">
-      <h2>最新筆記</h2>
-      {posts.length > latest.length && <a href={withBase('/posts/')}>所有文章 →</a>}
-    </div>
     {
-      latest.length === 0 ? (
+      tags.length > 0 && (
+        <ul class="tag-list tags-row">
+          {tags.map(({ tag, count }) => (
+            <li>
+              <a class="tag" href={tagPath(tag)}>
+                #{tag} <span class="count">{count}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    {
+      posts.length === 0 ? (
         <p class="muted">
           還沒有文章。在 <code>src/content/posts/</code> 新增一個 <code>.mdx</code> 就會出現在這裡。
         </p>
       ) : (
-        latest.map((post) => <PostCard post={post} />)
+        <div class="post-list">
+          {posts.map((post) => (
+            <PostCard post={post} />
+          ))}
+        </div>
       )
     }
   </section>
@@ -37,7 +51,7 @@ const latest = posts.slice(0, 8);
     max-width: var(--content-width);
     margin-inline: auto;
     padding-top: var(--space-10);
-    padding-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
   }
   .hero h1 {
     font-size: var(--text-3xl);
@@ -53,20 +67,11 @@ const latest = posts.slice(0, 8);
     max-width: var(--content-width);
     margin-inline: auto;
   }
-  .list-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-4);
-    margin-top: var(--space-6);
-    padding-bottom: var(--space-2);
+  .tags-row {
+    margin-bottom: var(--space-2);
   }
-  .list-head h2 {
-    font-size: var(--text-xl);
-    margin: 0;
-  }
-  .list-head a {
-    font-size: var(--text-sm);
-    font-weight: 600;
+  .count {
+    color: var(--text-muted);
+    font-size: 0.85em;
   }
 </style>

@@ -1,0 +1,57 @@
+---
+/**
+ * 把一份 public/ 底下、自成一格的獨立 HTML 頁面，當成文章內文嵌進來。
+ *
+ * 它走 <iframe>（不是直接內聯）是刻意的：那種頁面有自己的 <head>、字型、
+ * 全域 CSS reset 與腳本，內聯會跟站本身的樣式互相打架。iframe 把樣式與 JS
+ * 完全隔離，原設計一個 pixel 都不變；高度則由內頁 postMessage 回報、自動撐滿，
+ * 所以不會出現「框內又一條捲軸」。
+ *
+ *   <EmbedFrame src="/embeds/foo.html" title="..." />
+ *
+ * src 走 withBase()，子路徑部署（/my-pages/）也不會破。
+ * 內頁要附上回報高度的腳本（見 public/embeds/capacitor-inductor.html 末段）。
+ */
+import { withBase } from '../../utils/path';
+
+interface Props {
+  src: string;
+  title: string;
+  /** iframe 尚未回報高度前的初始高度，避免版面跳動 */
+  minHeight?: number;
+}
+
+const { src, title, minHeight = 600 } = Astro.props;
+const url = withBase(src);
+---
+
+<iframe
+  class="embed-frame"
+  src={url}
+  title={title}
+  loading="lazy"
+  scrolling="no"
+  style={`height:${minHeight}px`}></iframe>
+
+<script>
+  window.addEventListener('message', (e: MessageEvent) => {
+    const data = e.data as { type?: string; height?: number } | null;
+    if (!data || data.type !== 'embed-size' || typeof data.height !== 'number') return;
+    document.querySelectorAll<HTMLIFrameElement>('iframe.embed-frame').forEach((frame) => {
+      if (frame.contentWindow === e.source) {
+        frame.style.height = data.height + 'px';
+      }
+    });
+  });
+</script>
+
+<style>
+  .embed-frame {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #f4efe4;
+    overflow: hidden;
+  }
+</style>

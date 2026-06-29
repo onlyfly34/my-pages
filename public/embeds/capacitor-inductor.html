@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電容與電感 — 從萊頓瓶到矽電容</title>
+<style>
+  :root{
+    --ink:#1a1f2b; --ink-soft:#404a5c; --ink-faint:#6b7688;
+    --paper:#f4efe4; --paper-2:#ebe3d2; --line:#c9bfa8;
+    --brass:#b07d2b; --brass-d:#7d551a;
+    --copper:#a8492a; --copper-d:#7a3219;
+    --verd:#2f7d6b; --verd-d:#1d5446;
+    --slate:#3a5273; --slate-d:#243a55;
+    --spark:#d99b1c;
+    --max:1080px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Iowan Old Style','Palatino Linotype',Palatino,'Songti TC','Noto Serif TC',Georgia,serif;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(176,125,43,.05), transparent 40%),
+      radial-gradient(circle at 88% 80%, rgba(58,82,115,.05), transparent 45%);
+  }
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;overflow:hidden;
+    border-bottom:2px solid var(--ink);
+    padding:64px 0 48px;
+  }
+  .hero-grid{
+    position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) .5px,transparent .5px),linear-gradient(90deg,var(--line) .5px,transparent .5px);
+    background-size:32px 32px;opacity:.25;pointer-events:none;
+  }
+  .eyebrow{
+    font-family:'Courier New',monospace;font-size:13px;letter-spacing:.32em;
+    text-transform:uppercase;color:var(--copper-d);margin-bottom:20px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .eyebrow::before{content:"";width:48px;height:2px;background:var(--copper)}
+  h1{
+    font-size:clamp(38px,7vw,76px);line-height:1.02;font-weight:400;
+    letter-spacing:-.02em;margin-bottom:8px;position:relative;
+  }
+  h1 .light{color:var(--brass-d);font-style:italic}
+  .hero-sub{
+    font-size:clamp(17px,2.2vw,21px);color:var(--ink-soft);max-width:640px;
+    margin-top:22px;
+  }
+  .hero-meta{
+    margin-top:34px;display:flex;gap:28px;flex-wrap:wrap;
+    font-family:'Courier New',monospace;font-size:12.5px;letter-spacing:.06em;color:var(--ink-faint);
+  }
+  .hero-meta b{color:var(--ink);font-weight:700}
+
+  /* ---------- section scaffold ---------- */
+  section{padding:60px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:8px;flex-wrap:wrap}
+  .sec-num{
+    font-family:'Courier New',monospace;font-size:14px;color:var(--copper-d);
+    border:1.5px solid var(--copper);border-radius:50%;width:38px;height:38px;
+    display:grid;place-items:center;flex-shrink:0;
+  }
+  h2{font-size:clamp(26px,4vw,40px);font-weight:400;letter-spacing:-.01em;line-height:1.1}
+  h3{font-size:22px;font-weight:400;margin:30px 0 12px;color:var(--ink)}
+  h3 .tag{font-family:'Courier New',monospace;font-size:12px;color:var(--copper-d);letter-spacing:.1em;margin-left:8px;vertical-align:middle}
+  .lead{font-size:18px;color:var(--ink-soft);max-width:760px;margin:6px 0 0 56px}
+  @media(max-width:640px){.lead{margin-left:0}}
+  p{margin:14px 0;max-width:760px}
+  p.indent{margin-left:56px}
+  @media(max-width:640px){p.indent{margin-left:0}}
+  strong{font-weight:700}
+  em{color:var(--copper-d)}
+  .formula{
+    font-family:'Courier New',monospace;background:var(--paper-2);
+    border:1px solid var(--line);border-left:3px solid var(--brass);
+    padding:2px 9px;border-radius:0;font-size:15px;white-space:nowrap;
+  }
+
+  /* ---------- timeline ---------- */
+  .timeline{margin:36px 0 0;position:relative}
+  .tl-item{
+    display:grid;grid-template-columns:130px 1fr;gap:28px;
+    padding:26px 0;border-top:1px solid var(--line);position:relative;
+  }
+  .tl-item:last-child{border-bottom:1px solid var(--line)}
+  .tl-year{
+    font-family:'Courier New',monospace;font-size:30px;color:var(--copper-d);
+    font-weight:700;line-height:1;
+  }
+  .tl-who{font-family:'Courier New',monospace;font-size:12px;color:var(--ink-faint);margin-top:8px;letter-spacing:.04em}
+  .tl-body h4{font-size:20px;font-weight:400;margin-bottom:6px}
+  .tl-body p{margin:6px 0;font-size:16px;color:var(--ink-soft)}
+  @media(max-width:640px){.tl-item{grid-template-columns:1fr;gap:6px}.tl-year{font-size:24px}}
+
+  /* ---------- figure cards ---------- */
+  figure{
+    margin:30px 0;background:#fbf8f0;border:1.5px solid var(--ink);
+    box-shadow:6px 6px 0 var(--paper-2);
+  }
+  figure svg{display:block;width:100%;height:auto}
+  figcaption{
+    border-top:1px solid var(--line);padding:12px 18px;
+    font-size:14px;color:var(--ink-faint);font-family:'Courier New',monospace;
+    letter-spacing:.03em;display:flex;gap:10px;align-items:flex-start;
+  }
+  figcaption b{color:var(--copper-d);font-weight:700;flex-shrink:0}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px}
+  @media(max-width:780px){.two-col{grid-template-columns:1fr}}
+
+  /* ---------- callout ---------- */
+  .callout{
+    margin:30px 0;padding:24px 26px;background:var(--paper-2);
+    border-left:4px solid var(--verd);position:relative;
+  }
+  .callout.brass{border-left-color:var(--brass)}
+  .callout.copper{border-left-color:var(--copper)}
+  .callout h4{font-family:'Courier New',monospace;font-size:13px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--verd-d);margin-bottom:10px}
+  .callout.brass h4{color:var(--brass-d)}
+  .callout.copper h4{color:var(--copper-d)}
+  .callout p{margin:8px 0;max-width:none}
+
+  /* ---------- interactive impedance ---------- */
+  .lab{
+    margin-top:30px;background:#0f1620;border:1.5px solid var(--ink);
+    padding:0;overflow:hidden;color:#d8dde6;
+  }
+  .lab-head{padding:16px 22px;border-bottom:1px solid #283446;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  .lab-head h4{font-family:'Courier New',monospace;color:#e8c87a;font-size:14px;letter-spacing:.1em;font-weight:400}
+  .lab-head .hint{font-family:'Courier New',monospace;font-size:11.5px;color:#7a8aa0}
+  .lab svg{display:block;width:100%;height:auto;background:#0f1620}
+  .lab-controls{padding:16px 22px;border-top:1px solid #283446;display:flex;gap:26px;flex-wrap:wrap;align-items:center}
+  .ctl{display:flex;flex-direction:column;gap:7px;min-width:170px;flex:1}
+  .ctl label{font-family:'Courier New',monospace;font-size:11.5px;letter-spacing:.06em;color:#9fb0c6;display:flex;justify-content:space-between}
+  .ctl label b{color:#e8c87a;font-weight:700}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;height:4px;background:#2c3a4e;border-radius:2px;outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#e8c87a;cursor:pointer;border:2px solid #0f1620;
+  }
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#e8c87a;cursor:pointer;border:2px solid #0f1620}
+  .legend{display:flex;gap:20px;flex-wrap:wrap;padding:0 22px 16px;font-family:'Courier New',monospace;font-size:12px}
+  .legend span{display:flex;align-items:center;gap:7px;color:#b9c4d4}
+  .legend i{width:18px;height:3px;display:inline-block;border-radius:2px}
+
+  /* ---------- comparison table ---------- */
+  .table-scroll{margin:34px 0;overflow-x:auto;border:1.5px solid var(--ink);box-shadow:6px 6px 0 var(--paper-2)}
+  table{border-collapse:collapse;width:100%;min-width:880px;background:#fbf8f0;font-size:14.5px}
+  caption{text-align:left;padding:14px 18px;font-family:'Courier New',monospace;font-size:12.5px;color:var(--ink-faint);letter-spacing:.06em;border-bottom:1px solid var(--line);background:var(--paper-2)}
+  th,td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  thead th{
+    background:var(--ink);color:var(--paper);font-family:'Courier New',monospace;
+    font-size:12.5px;letter-spacing:.04em;font-weight:400;position:sticky;top:0;
+  }
+  thead th:first-child{border-right:1px solid #3a4556}
+  tbody th{
+    font-family:'Courier New',monospace;font-weight:700;font-size:14px;
+    background:var(--paper-2);white-space:nowrap;border-right:1.5px solid var(--line);
+    color:var(--ink);
+  }
+  tbody tr:hover td,tbody tr:hover th{background:#f0ead9}
+  .chip{display:inline-block;font-family:'Courier New',monospace;font-size:11px;padding:2px 8px;border-radius:2px;letter-spacing:.04em;margin:2px 4px 2px 0}
+  .chip.mlcc{background:rgba(58,82,115,.16);color:var(--slate-d)}
+  .chip.elec{background:rgba(168,73,42,.16);color:var(--copper-d)}
+  .chip.tant{background:rgba(176,125,43,.18);color:var(--brass-d)}
+  .chip.sicap{background:rgba(47,125,107,.16);color:var(--verd-d)}
+  .pro{color:var(--verd-d)}
+  .con{color:var(--copper-d)}
+  td ul{margin:0;padding-left:16px}
+  td li{margin:3px 0}
+  .mini-svg{width:96px;height:64px;display:block}
+
+  /* ---------- footer ---------- */
+  footer{padding:50px 0 70px;text-align:center}
+  footer p{margin:0 auto;color:var(--ink-faint);font-family:'Courier New',monospace;font-size:12.5px;letter-spacing:.05em;max-width:none}
+  .footer-mark{font-size:22px;color:var(--brass-d);margin-bottom:16px;letter-spacing:.3em}
+
+  ::selection{background:var(--spark);color:var(--ink)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-grid"></div>
+  <div class="wrap">
+    <div class="eyebrow">電學筆記 · 被動元件 · 從靜電火花到 AI 晶片</div>
+    <h1>儲存電場，<br>抗拒<span class="light">電流的改變</span></h1>
+    <p class="hero-sub">兩個性格相反的元件——電容存住電場、電感抗拒電流變化——如何從 18 世紀的玻璃瓶與線圈，一路演化成貼在 GPU 旁邊那幾百顆陶瓷方塊。</p>
+    <div class="hero-meta">
+      <span><b>1745</b> 萊頓瓶</span>
+      <span><b>1831</b> 電磁感應</span>
+      <span><b>1834</b> 楞次定律</span>
+      <span><b>2026</b> 矽電容</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 1. 歷史 ============ -->
+<section id="history">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>它們是怎麼出現的</h2></div>
+    <p class="lead">在能「儲存」電之前，電只是摩擦生出來、轉瞬即逝的火花。三個關鍵時刻，把電從表演變成了工程。</p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div>
+          <div class="tl-year">1745</div>
+          <div class="tl-who">von Kleist · Musschenbroek</div>
+        </div>
+        <div class="tl-body">
+          <h4>萊頓瓶 — 第一個電容器</h4>
+          <p>德國教士 Ewald Georg von Kleist 在 1745 年 10 月、荷蘭物理學家 Pieter van Musschenbroek 在隔年初，各自獨立做出了同一個東西：一個裝了水、插著銅棒的玻璃瓶。摩擦起電機把電荷灌進銅棒，玻璃當絕緣層，內外兩側（水 vs 手或金屬箔）面對面存住電荷。</p>
+          <p>它以 Musschenbroek 任教的萊頓（Leiden）大學命名，是人類第一個能「大量累積電荷、想用時再一次放掉」的裝置。當時的人被它放電的威力嚇到——它本質上是個高壓元件，能存上幾小時甚至幾天。</p>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div>
+          <div class="tl-year">1831</div>
+          <div class="tl-who">Faraday · Henry</div>
+        </div>
+        <div class="tl-body">
+          <h4>電磁感應 — 電感的物理基礎</h4>
+          <p>Michael Faraday 在 1831 年用一個纏了兩組線圈的鐵環做實驗：當他切斷其中一組線圈的電流時，另一組線圈瞬間感應出電流。「變化的磁場會生出電」——這就是所有電感、變壓器、發電機的原理。</p>
+          <p>美國的 Joseph Henry 幾乎同時獨立發現了同一現象，並在 1832 年正確地解釋了「自感」：他切斷一條長螺旋導線的電池時，電流的驟降在線端拉出一道明亮電弧。電感的單位「亨利（H）」就是以他命名。</p>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div>
+          <div class="tl-year">1834</div>
+          <div class="tl-who">Heinrich Lenz</div>
+        </div>
+        <div class="tl-body">
+          <h4>楞次定律 — 變化的方向</h4>
+          <p>Faraday 說了「會感應出電」，但沒說清楚「往哪個方向」。德國物理學家 Heinrich Lenz 在 1834 年補上這塊：感應電流的方向，總是要去<em>反抗那個產生它的變化</em>。這正是電感「抗拒電流改變」的根源，也是後面所有故事的關鍵。</p>
+        </div>
+      </div>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 1040 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="萊頓瓶與法拉第鐵環線圈的歷史結構圖">
+        <rect width="1040" height="360" fill="#fbf8f0"/>
+        <line x1="520" y1="36" x2="520" y2="324" stroke="#c9bfa8" stroke-width="1" stroke-dasharray="4 5"/>
+
+        <!-- Leyden jar -->
+        <text x="80" y="58" font-family="Courier New,monospace" font-size="14" fill="#7d551a" letter-spacing="2">萊 頓 瓶 · 1745</text>
+        <text x="80" y="78" font-family="Georgia,serif" font-size="13" fill="#6b7688">第一個電容器：玻璃介質 + 內外兩層導體</text>
+        <!-- rod -->
+        <line x1="220" y1="100" x2="220" y2="172" stroke="#7d551a" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="220" cy="98" r="13" fill="none" stroke="#b07d2b" stroke-width="5"/>
+        <!-- jar -->
+        <path d="M168 175 Q168 168 176 168 L264 168 Q272 168 272 175 L268 300 Q266 318 250 318 L190 318 Q174 318 172 300 Z" fill="#dceef0" stroke="#3a5273" stroke-width="2.5"/>
+        <!-- inner water -->
+        <path d="M182 210 L258 210 L255 298 Q254 308 244 308 L196 308 Q186 308 185 298 Z" fill="#bcd6ea" opacity=".7"/>
+        <!-- outer foil -->
+        <path d="M170 250 L172 300 Q174 318 190 318 L250 318 Q266 318 268 300 L270 250" fill="none" stroke="#b07d2b" stroke-width="7" opacity=".75"/>
+        <!-- charge marks -->
+        <text x="200" y="240" font-family="Courier New" font-size="20" fill="#a8492a">+ +</text>
+        <text x="230" y="262" font-family="Courier New" font-size="20" fill="#a8492a">+</text>
+        <text x="300" y="280" font-family="Courier New" font-size="20" fill="#2f7d6b">− −</text>
+        <!-- labels -->
+        <text x="300" y="120" font-family="Courier New" font-size="12.5" fill="#404a5c">銅棒（接電荷）</text>
+        <line x1="296" y1="116" x2="232" y2="100" stroke="#6b7688" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="300" y="200" font-family="Courier New" font-size="12.5" fill="#3a5273">內導體（水）</text>
+        <line x1="296" y1="196" x2="248" y2="215" stroke="#6b7688" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="40" y="280" font-family="Courier New" font-size="12.5" fill="#7d551a" text-anchor="start">玻璃 = 介質</text>
+        <line x1="120" y1="276" x2="172" y2="262" stroke="#6b7688" stroke-width="1" stroke-dasharray="3 3"/>
+        <text x="300" y="312" font-family="Courier New" font-size="12.5" fill="#b07d2b">外導體（金屬箔/手）</text>
+        <line x1="296" y1="308" x2="268" y2="300" stroke="#6b7688" stroke-width="1" stroke-dasharray="3 3"/>
+
+        <!-- Faraday ring -->
+        <text x="600" y="58" font-family="Courier New,monospace" font-size="14" fill="#7d551a" letter-spacing="2">法 拉 第 鐵 環 · 1831</text>
+        <text x="600" y="78" font-family="Georgia,serif" font-size="13" fill="#6b7688">電感與變壓器的雛形：變化的電流感應出電流</text>
+        <!-- iron ring -->
+        <ellipse cx="760" cy="218" rx="92" ry="92" fill="none" stroke="#888780" stroke-width="20" opacity=".5"/>
+        <!-- primary coil (left) -->
+        <g stroke="#a8492a" stroke-width="3.5" fill="none">
+          <path d="M672 168 q-20 12 0 24 q-20 12 0 24 q-20 12 0 24 q-20 12 0 24"/>
+        </g>
+        <!-- secondary coil (right) -->
+        <g stroke="#3a5273" stroke-width="3.5" fill="none">
+          <path d="M848 168 q20 12 0 24 q20 12 0 24 q20 12 0 24 q20 12 0 24"/>
+        </g>
+        <!-- battery -->
+        <line x1="628" y1="186" x2="628" y2="252" stroke="#1a1f2b" stroke-width="2"/>
+        <line x1="612" y1="198" x2="612" y2="240" stroke="#1a1f2b" stroke-width="4"/>
+        <line x1="612" y1="198" x2="628" y2="186" stroke="#a8492a" stroke-width="2"/>
+        <line x1="612" y1="240" x2="628" y2="252" stroke="#a8492a" stroke-width="2"/>
+        <text x="568" y="222" font-family="Courier New" font-size="12.5" fill="#a8492a">電池</text>
+        <!-- galvanometer -->
+        <circle cx="916" cy="218" r="20" fill="#fbf8f0" stroke="#3a5273" stroke-width="2"/>
+        <text x="916" y="223" font-family="Georgia" font-size="16" fill="#3a5273" text-anchor="middle">G</text>
+        <line x1="884" y1="200" x2="900" y2="206" stroke="#3a5273" stroke-width="2"/>
+        <line x1="884" y1="236" x2="900" y2="230" stroke="#3a5273" stroke-width="2"/>
+        <text x="600" y="332" font-family="Courier New" font-size="12.5" fill="#a8492a">主線圈：通/斷電流</text>
+        <text x="852" y="332" font-family="Courier New" font-size="12.5" fill="#3a5273">副線圈：感應出瞬間電流</text>
+      </svg>
+      <figcaption><b>圖 1.</b> 左：萊頓瓶用玻璃隔開內外兩層導體，把電荷面對面存住，是電容的祖先。右：法拉第用鐵環＋兩組線圈證明「變化的磁場能生出電」，是電感與變壓器的源頭。</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ 2. 電容原理 ============ -->
+<section id="capacitor">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>電容怎麼運作</h2></div>
+    <p class="lead">電容存的不是「裝在杯子裡的水」，而是被電場拉住、互相牽制而停住的電荷——本質上存的是兩片之間的電場（電能）。</p>
+
+    <h3>電荷為什麼會「停住」</h3>
+    <p class="indent">接上電源後，一片金屬被抽走電子（帶正電）、另一片堆進電子（帶負電）。它們不會自己中和掉，靠的是兩件事同時成立：<strong>(a) 中間絕緣，電荷過不去</strong>——只能各自堆在表面面對面；<strong>(b) 異性電荷隔著介質互相吸引</strong>——這個吸引力反而把電荷牢牢鎖在內表面。這個「被電場拉住」的狀態，就是儲存電荷。</p>
+    <p class="indent">這也解釋了容量公式 <span class="formula">C = ε × A / d</span>：面積 <em>A</em> 越大，能容納越多面對面的電荷；距離 <em>d</em> 越近，吸引力越強、拉得越牢；介質 <em>ε</em> 決定它「幫忙拉住電荷」的能力。</p>
+
+    <figure>
+      <svg viewBox="0 0 1040 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="平行板電容充放電示意圖">
+        <rect width="1040" height="300" fill="#fbf8f0"/>
+        <!-- plates -->
+        <rect x="360" y="60" width="320" height="16" rx="2" fill="#a8492a"/>
+        <rect x="360" y="224" width="320" height="16" rx="2" fill="#3a5273"/>
+        <!-- field lines -->
+        <g stroke="#b07d2b" stroke-width="1.5" stroke-dasharray="2 6" opacity=".8">
+          <line x1="390" y1="78" x2="390" y2="222"/>
+          <line x1="440" y1="78" x2="440" y2="222"/>
+          <line x1="490" y1="78" x2="490" y2="222"/>
+          <line x1="540" y1="78" x2="540" y2="222"/>
+          <line x1="590" y1="78" x2="590" y2="222"/>
+          <line x1="640" y1="78" x2="640" y2="222"/>
+        </g>
+        <!-- charges -->
+        <g font-family="Courier New" font-size="22" fill="#fbf8f0" text-anchor="middle">
+          <text x="400" y="73">+</text><text x="450" y="73">+</text><text x="500" y="73">+</text><text x="550" y="73">+</text><text x="600" y="73">+</text><text x="650" y="73">+</text>
+          <text x="400" y="237">−</text><text x="450" y="237">−</text><text x="500" y="237">−</text><text x="550" y="237">−</text><text x="600" y="237">−</text><text x="650" y="237">−</text>
+        </g>
+        <!-- dielectric label -->
+        <text x="520" y="156" font-family="Courier New" font-size="13" fill="#7d551a" text-anchor="middle">介質 ε（不導電）</text>
+        <text x="520" y="176" font-family="Courier New" font-size="11.5" fill="#6b7688" text-anchor="middle">電場 E 把電荷隔空拉住</text>
+        <!-- A and d arrows -->
+        <line x1="360" y1="44" x2="680" y2="44" stroke="#404a5c" stroke-width="1"/>
+        <text x="520" y="38" font-family="Courier New" font-size="12.5" fill="#404a5c" text-anchor="middle">電極重疊面積 A</text>
+        <line x1="720" y1="76" x2="720" y2="224" stroke="#404a5c" stroke-width="1"/>
+        <line x1="715" y1="76" x2="725" y2="76" stroke="#404a5c" stroke-width="1"/>
+        <line x1="715" y1="224" x2="725" y2="224" stroke="#404a5c" stroke-width="1"/>
+        <text x="752" y="154" font-family="Courier New" font-size="12.5" fill="#404a5c">間距 d</text>
+        <!-- wires + source -->
+        <line x1="360" y1="68" x2="180" y2="68" stroke="#a8492a" stroke-width="2.5"/>
+        <line x1="360" y1="232" x2="180" y2="232" stroke="#3a5273" stroke-width="2.5"/>
+        <line x1="180" y1="68" x2="180" y2="120" stroke="#a8492a" stroke-width="2.5"/>
+        <line x1="180" y1="232" x2="180" y2="180" stroke="#3a5273" stroke-width="2.5"/>
+        <line x1="166" y1="130" x2="166" y2="170" stroke="#1a1f2b" stroke-width="4"/>
+        <line x1="194" y1="138" x2="194" y2="162" stroke="#1a1f2b" stroke-width="2"/>
+        <line x1="166" y1="130" x2="180" y2="120" stroke="#a8492a" stroke-width="2.5"/>
+        <line x1="166" y1="170" x2="180" y2="180" stroke="#3a5273" stroke-width="2.5"/>
+        <text x="120" y="154" font-family="Courier New" font-size="12.5" fill="#404a5c">電源</text>
+        <text x="860" y="120" font-family="Georgia" font-size="14" fill="#1a1f2b">上片缺電子 → 帶正電</text>
+        <text x="860" y="200" font-family="Georgia" font-size="14" fill="#1a1f2b">下片多電子 → 帶負電</text>
+      </svg>
+      <figcaption><b>圖 2.</b> 平行板電容：絕緣讓電荷過不去，異性電荷隔著介質互相吸住，被電場鎖在內表面——這個狀態就是「儲存電荷」。</figcaption>
+    </figure>
+
+    <div class="callout brass">
+      <h4>核心性格：阻直流、導交流</h4>
+      <p>接上穩定 DC 後，電容會被充飽、兩端電壓頂住電源，<strong>電流歸零（對直流像斷路）</strong>。但只要電源電壓一直在變，電容就一直在充充放放，<strong>電流就從沒停過（對交流像通路）</strong>。注意：電荷從未真的穿過中間絕緣層——是一片在充、另一片同步在放，外部看起來「電流彷彿流過電容」。</p>
+      <p>這正是去耦電容的工作：平時待命不耗電，GPU 瞬間抽電流把電壓拉凹時，它立刻放電把缺口填回——<strong>它只對「電壓的變化」做反應。</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. 電感 + 楞次 ============ -->
+<section id="inductor">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>電感與楞次定律</h2></div>
+    <p class="lead">電容抗拒電壓的瞬間改變；電感則是它的鏡像——抗拒電流的瞬間改變。理解這個「電流的慣性」，就理解了為什麼遠處的電源救不了 GPU 的急。</p>
+
+    <h3>電流的慣性 <span class="tag">V = L · dI/dt</span></h3>
+    <p class="indent">電流流過導線會產生磁場。當你想<strong>突然改變電流</strong>，磁場也得跟著突然變——而根據楞次定律，這個變化的磁場會<em>反過來感應出一個電壓，去抵抗這個變化</em>（反電動勢）。結果就是：電感像「電流的慣性」，你想猛踩油門加速電流，它偏要拖一下。電流變化越快（<span class="formula">dI/dt</span> 越大），電感頂出的反抗電壓 <span class="formula">V = L · dI/dt</span> 越大。</p>
+
+    <div class="callout">
+      <h4>楞次定律 · Lenz's Law · 1834</h4>
+      <p>感應電流的方向，<strong>永遠要去反抗那個產生它的磁通量變化</strong>。磁通增加，它就生出反向磁場抵消；磁通減少，它就想補上。這不只是個方向規則——它其實是能量守恆的展現：如果感應電流反過來助長變化，就會無中生有出能量，違反熱力學第一定律。</p>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 1040 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="楞次定律示意圖：磁鐵接近線圈，感應電流產生反向磁場抵抗">
+        <rect width="1040" height="330" fill="#fbf8f0"/>
+        <text x="40" y="48" font-family="Courier New,monospace" font-size="14" fill="#7d551a" letter-spacing="2">楞 次 定 律：感 應 電 流 總 是 反 抗 變 化</text>
+
+        <!-- magnet moving toward coil -->
+        <g>
+          <rect x="120" y="150" width="120" height="44" fill="#a8492a"/>
+          <rect x="180" y="150" width="60" height="44" fill="#3a5273"/>
+          <text x="150" y="178" font-family="Georgia" font-size="20" fill="#fbf8f0" text-anchor="middle">N</text>
+          <text x="210" y="178" font-family="Georgia" font-size="20" fill="#fbf8f0" text-anchor="middle">S</text>
+        </g>
+        <!-- motion arrow -->
+        <line x1="250" y1="172" x2="340" y2="172" stroke="#1a1f2b" stroke-width="2.5"/>
+        <path d="M340 172 l-12 -7 l0 14 z" fill="#1a1f2b"/>
+        <text x="295" y="142" font-family="Courier New" font-size="13" fill="#1a1f2b" text-anchor="middle">磁鐵接近 →</text>
+
+        <!-- coil -->
+        <g stroke="#b07d2b" stroke-width="4" fill="none">
+          <ellipse cx="430" cy="172" rx="14" ry="58"/>
+          <ellipse cx="460" cy="172" rx="14" ry="58"/>
+          <ellipse cx="490" cy="172" rx="14" ry="58"/>
+          <ellipse cx="520" cy="172" rx="14" ry="58"/>
+        </g>
+        <!-- induced field opposing -->
+        <text x="475" y="262" font-family="Georgia" font-size="20" fill="#2f7d6b" text-anchor="middle">N</text>
+        <text x="475" y="100" font-family="Courier New" font-size="12.5" fill="#2f7d6b" text-anchor="middle">線圈左端被感應成 N 極</text>
+        <text x="475" y="290" font-family="Courier New" font-size="12.5" fill="#2f7d6b" text-anchor="middle">（同極相斥，推回磁鐵 = 反抗）</text>
+
+        <!-- induced current loop -->
+        <circle cx="640" cy="172" r="20" fill="#fbf8f0" stroke="#3a5273" stroke-width="2"/>
+        <text x="640" y="177" font-family="Georgia" font-size="16" fill="#3a5273" text-anchor="middle">G</text>
+        <line x1="534" y1="120" x2="640" y2="120" stroke="#2f7d6b" stroke-width="2.5"/>
+        <line x1="640" y1="120" x2="640" y2="152" stroke="#2f7d6b" stroke-width="2.5"/>
+        <line x1="534" y1="224" x2="640" y2="224" stroke="#2f7d6b" stroke-width="2.5"/>
+        <line x1="640" y1="224" x2="640" y2="192" stroke="#2f7d6b" stroke-width="2.5"/>
+        <path d="M590 120 l-10 -5 l0 10 z" fill="#2f7d6b"/>
+        <text x="710" y="176" font-family="Courier New" font-size="12.5" fill="#2f7d6b">感應電流</text>
+
+        <!-- right side: the takeaway -->
+        <line x1="800" y1="70" x2="800" y2="280" stroke="#c9bfa8" stroke-width="1" stroke-dasharray="4 5"/>
+        <text x="830" y="130" font-family="Georgia" font-size="15" fill="#1a1f2b">磁鐵靠近 → 磁通增加</text>
+        <text x="830" y="162" font-family="Georgia" font-size="15" fill="#1a1f2b">→ 線圈感應出電流</text>
+        <text x="830" y="194" font-family="Georgia" font-size="15" fill="#2f7d6b">→ 該電流的磁場反向</text>
+        <text x="830" y="226" font-family="Georgia" font-size="15" fill="#2f7d6b">→ 推回磁鐵，抵抗變化</text>
+      </svg>
+      <figcaption><b>圖 3.</b> 磁鐵接近線圈時，感應電流會把線圈左端變成 N 極去「推回」磁鐵——感應出的效應永遠在反抗產生它的變化。這就是電感「抗拒電流改變」的微觀根源。</figcaption>
+    </figure>
+
+    <h3>寄生電感 <span class="tag">沒人放，卻無所不在</span></h3>
+    <p class="indent">關鍵在於：電路裡的電感<strong>不一定是有人故意放一顆線圈</strong>。任何一段導線、PCB 銅箔、晶片封裝走線，本身都天生帶有<strong>寄生電感（parasitic inductance）</strong>。它平常不起眼，但在高速、大電流瞬變的場景會跳出來擋路。</p>
+
+    <div class="callout copper">
+      <h4>遠水救不了近火</h4>
+      <p>當 GPU 在幾奈秒內把電流需求從 100A 拉到 400A，VRM 想立刻把電流灌過去——但 VRM 到 GPU 那段路徑的<strong>寄生電感</strong>，憑著「電流不能瞬間改變」的個性把反應拖慢。這幾奈秒的供需缺口，只能靠<strong>貼在 GPU 旁邊、避開那段長路徑電感</strong>的去耦電容即時補上。所以不是 VRM 不夠力，是路太遠、電感擋路——這就是為什麼電容要放得離晶片越近越好。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. 去耦頻率分工（互動） ============ -->
+<section id="decoupling">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>去耦電容的頻率分工</h2></div>
+    <p class="lead">為什麼板上不能只放一顆大電容？因為每顆真實電容都帶寄生電感，過了自諧振頻率（SRF）就「翻轉成電感」而失效。解法是不同尺寸並聯，讓各自的 V 字谷底接力覆蓋整個頻段。</p>
+
+    <p class="indent">真實電容等效是 <span class="formula">C + ESL + ESR</span> 串聯。低頻時電容阻抗主導（<span class="formula">Z_C = 1/2πfC</span>，隨頻率下降）；高頻時寄生電感阻抗主導（<span class="formula">Z_L = 2πfL</span>，隨頻率上升）。兩者在某個頻率交會於最低點——<strong>自諧振頻率 SRF</strong>。過了 SRF，這顆「電容」就表現得像電感，再也濾不掉更高頻的雜訊。尺寸越小、ESL 越低，SRF 越高，能管的頻率上限越高。</p>
+
+    <div class="lab">
+      <div class="lab-head">
+        <h4>◢ 互動：阻抗 vs 頻率（拖動滑桿看 ESL 如何決定 SRF）</h4>
+        <span class="hint">每條曲線 = 一種尺寸的電容</span>
+      </div>
+      <svg id="impedanceChart" viewBox="0 0 1040 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="去耦電容阻抗對頻率的互動曲線圖"></svg>
+      <div class="legend">
+        <span><i style="background:#7fc9b8"></i>大電容（μF 級，ESL 高 → SRF 低）</span>
+        <span><i style="background:#e8c87a"></i>中電容（nF 級）</span>
+        <span><i style="background:#e08a5a"></i>小尺寸（pF 級，ESL 低 → SRF 高）</span>
+        <span><i style="background:#9fb0c6;height:2px"></i>並聯合成包絡線</span>
+      </div>
+      <div class="lab-controls">
+        <div class="ctl">
+          <label>大電容 容量 <b id="v-c1">10 µF</b></label>
+          <input type="range" id="c1" min="0" max="100" value="80">
+        </div>
+        <div class="ctl">
+          <label>中電容 容量 <b id="v-c2">100 nF</b></label>
+          <input type="range" id="c2" min="0" max="100" value="50">
+        </div>
+        <div class="ctl">
+          <label>小電容 ESL（寄生電感）<b id="v-esl">低</b></label>
+          <input type="range" id="esl" min="0" max="100" value="20">
+        </div>
+      </div>
+    </div>
+    <p class="indent" style="margin-top:24px">工程師把這三種電容<strong>並聯</strong>，讓 V 字谷底從左到右接力排開，合成出一條「從低頻到高頻全程都壓得很低」的整體阻抗包絡線（上圖灰色虛線）。任何頻率的雜訊，都有一顆電容在它的擅長頻段把阻抗壓住——這就是為什麼一塊 AI 加速卡上，光去耦電容就密密麻麻好幾百顆。</p>
+  </div>
+</section>
+
+<!-- ============ 5. 比較表 ============ -->
+<section id="compare">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>四種電容的全面比較</h2></div>
+    <p class="lead">沒有「最好」的電容，只有「最適合某個位置」的電容。容量、寄生參數、成本、可靠度——每一種都在不同的軸上權衡取捨。</p>
+
+    <div class="table-scroll">
+      <table>
+        <caption>MLCC · 鋁電解 · 鉭質 · 矽電容 — 原理、成本、優劣、應用對照</caption>
+        <thead>
+          <tr>
+            <th style="min-width:120px">比較項目</th>
+            <th>MLCC<br>積層陶瓷電容</th>
+            <th>鋁電解電容<br>Electrolytic</th>
+            <th>鉭質電容<br>Tantalum</th>
+            <th>矽電容<br>Silicon Capacitor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>結構示意</th>
+            <td>
+              <svg class="mini-svg" viewBox="0 0 96 64"><rect width="96" height="64" fill="none"/>
+                <g><rect x="24" y="12" width="48" height="6" fill="#888780"/><rect x="20" y="20" width="48" height="6" fill="#3a5273"/><rect x="24" y="28" width="48" height="6" fill="#888780"/><rect x="20" y="36" width="48" height="6" fill="#3a5273"/><rect x="24" y="44" width="48" height="6" fill="#888780"/><rect x="14" y="8" width="10" height="46" fill="#b07d2b"/><rect x="68" y="8" width="10" height="46" fill="#b07d2b"/></g>
+              </svg>
+              <span style="font-size:12px;color:#6b7688">陶瓷+電極交錯疊層</span>
+            </td>
+            <td>
+              <svg class="mini-svg" viewBox="0 0 96 64"><rect x="30" y="8" width="36" height="48" rx="6" fill="#a8492a" opacity=".25" stroke="#a8492a" stroke-width="2"/><path d="M48 12 a14 8 0 0 0 0 0" /><ellipse cx="48" cy="30" rx="11" ry="18" fill="none" stroke="#a8492a" stroke-width="2"/><line x1="42" y1="56" x2="42" y2="62" stroke="#404a5c" stroke-width="2"/><line x1="54" y1="56" x2="54" y2="62" stroke="#404a5c" stroke-width="2"/></svg>
+              <span style="font-size:12px;color:#6b7688">捲繞鋁箔+電解液</span>
+            </td>
+            <td>
+              <svg class="mini-svg" viewBox="0 0 96 64"><rect x="28" y="16" width="40" height="32" rx="4" fill="#b07d2b" opacity=".3" stroke="#b07d2b" stroke-width="2"/><circle cx="42" cy="32" r="8" fill="#b07d2b" opacity=".5"/><line x1="20" y1="32" x2="28" y2="32" stroke="#404a5c" stroke-width="2"/><line x1="68" y1="32" x2="76" y2="32" stroke="#404a5c" stroke-width="2"/></svg>
+              <span style="font-size:12px;color:#6b7688">鉭粉燒結+氧化層</span>
+            </td>
+            <td>
+              <svg class="mini-svg" viewBox="0 0 96 64"><rect x="18" y="22" width="60" height="20" rx="2" fill="#2f7d6b" opacity=".22" stroke="#2f7d6b" stroke-width="2"/><line x1="26" y1="22" x2="26" y2="42" stroke="#2f7d6b" stroke-width="2"/><line x1="36" y1="22" x2="36" y2="42" stroke="#2f7d6b" stroke-width="2"/><line x1="46" y1="22" x2="46" y2="42" stroke="#2f7d6b" stroke-width="2"/><line x1="56" y1="22" x2="56" y2="42" stroke="#2f7d6b" stroke-width="2"/><line x1="66" y1="22" x2="66" y2="42" stroke="#2f7d6b" stroke-width="2"/></svg>
+              <span style="font-size:12px;color:#6b7688">矽晶圓深溝微孔</span>
+            </td>
+          </tr>
+          <tr>
+            <th>運作原理</th>
+            <td>數百~上千層陶瓷介質與鎳內電極交錯堆疊燒結，靠層數累積容量。</td>
+            <td>鋁箔表面氧化鋁薄膜當介質，電解液當另一電極，超大有效面積換高容量。<strong>有極性</strong>。</td>
+            <td>多孔鉭粉燒結成陽極，五氧化二鉭為介質，介電性能優異、體積效率高。<strong>有極性</strong>。</td>
+            <td>在矽晶圓上蝕刻深溝微孔、孔內做電極（源自 DRAM 儲存電容），孔越多越密容量越高。</td>
+          </tr>
+          <tr>
+            <th>容量範圍</th>
+            <td>pF ~ 數百 µF</td>
+            <td>µF ~ 數萬 µF<br><span class="pro">（最高）</span></td>
+            <td>µF ~ 數百 µF</td>
+            <td>pF ~ 低 µF<br><span class="con">（最低）</span></td>
+          </tr>
+          <tr>
+            <th>寄生 ESL/ESR</th>
+            <td>低（尺寸越小越低）</td>
+            <td><span class="con">高</span>（高頻表現差）</td>
+            <td>中等</td>
+            <td><span class="pro">極低</span>（比 MLCC 低 100 倍以上）</td>
+          </tr>
+          <tr>
+            <th>厚度 / 體積</th>
+            <td>小，0402 等超小尺寸</td>
+            <td><span class="con">大、高</span>（圓柱狀）</td>
+            <td>中等</td>
+            <td><span class="pro">超薄</span>，可壓到 100 µm 以下、埋進封裝</td>
+          </tr>
+          <tr>
+            <th>成本</th>
+            <td><span class="pro">極低</span>，一顆零點幾美分</td>
+            <td><span class="pro">低</span>（單位容量最便宜）</td>
+            <td>中高（鉭料貴、有供應風險）</td>
+            <td><span class="con">極高</span>，半導體晶圓製程成本</td>
+          </tr>
+          <tr>
+            <th>優勢</th>
+            <td><ul><li>便宜、成熟、無極性</li><li>頻率特性好、可靠</li><li>尺寸與容量選擇極多</li></ul></td>
+            <td><ul><li>單位容量成本最低</li><li>容量可做到非常大</li><li>耐高壓型號多</li></ul></td>
+            <td><ul><li>體積效率高、容量穩定</li><li>溫度特性好、壽命長</li><li>低漏電、低 ESR 型號</li></ul></td>
+            <td><ul><li>寄生參數極低、超高頻</li><li>超薄、可封裝內整合</li><li>高溫高壓下穩定</li></ul></td>
+          </tr>
+          <tr>
+            <th>劣勢</th>
+            <td><ul><li>陶瓷怕彎曲應力會裂</li><li>容量隨溫度/直流偏壓衰減</li><li>壓電效應產生嘯叫</li></ul></td>
+            <td><ul><li>ESL/ESR 高、高頻差</li><li>電解液會乾涸、壽命有限</li><li>體積大、有極性</li></ul></td>
+            <td><ul><li>失效模式偏短路、可能起火</li><li>鉭料供應與地緣風險</li><li>耐壓裕度需保守設計</li></ul></td>
+            <td><ul><li>容量小，無法扛大電流儲能</li><li>成本貴一個數量級</li><li>產能稀缺、認證門檻高</li></ul></td>
+          </tr>
+          <tr>
+            <th>典型應用</th>
+            <td>
+              <span class="chip mlcc">去耦/旁路</span><span class="chip mlcc">濾波</span><span class="chip mlcc">VRM 輸入級</span><span class="chip mlcc">手機/車用</span>
+              <div style="margin-top:6px;font-size:12.5px;color:#6b7688">板上無所不在，中低頻大電流緩衝主力</div>
+            </td>
+            <td>
+              <span class="chip elec">電源平滑</span><span class="chip elec">大儲能</span><span class="chip elec">音響/電源供應器</span>
+              <div style="margin-top:6px;font-size:12.5px;color:#6b7688">電源輸入端大容量緩衝</div>
+            </td>
+            <td>
+              <span class="chip tant">穩壓</span><span class="chip tant">軍工/航太</span><span class="chip tant">小體積場合</span>
+              <div style="margin-top:6px;font-size:12.5px;color:#6b7688">要求穩定可靠的緊湊設計</div>
+            </td>
+            <td>
+              <span class="chip sicap">GPU/HBM 封裝內</span><span class="chip sicap">AI 加速器</span><span class="chip sicap">最高頻去耦</span>
+              <div style="margin-top:6px;font-size:12.5px;color:#6b7688">緊貼 die，打最高頻瞬態雜訊</div>
+            </td>
+          </tr>
+          <tr>
+            <th>歷史/玩家</th>
+            <td>村田、三星電機、太陽誘電（頂規）；國巨、華新科（中低階/車用）</td>
+            <td>Nichicon、Rubycon、Panasonic、KEMET 等</td>
+            <td>KEMET、AVX、Vishay 等</td>
+            <td>村田、台積電（原雙寡頭）；三星電機 2026 切入，AP Memory</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <h4>它們不是互相取代，是分工</h4>
+      <p>在一台 AI 伺服器裡，這幾種電容是<strong>分層接力</strong>：鋁電解在電源輸入端做大儲能水庫；MLCC 在板上大量並聯，扛中低頻的大電流瞬態；矽電容埋進 GPU/HBM 封裝內，打 MLCC 碰不到的最高頻雜訊。問「為什麼平常不用矽電容」的答案是——平常的電路根本不需要它那種極致高頻能力，而它容量小、成本又高，CP 值不划算。只有當 AI 晶片把功耗密度與訊號完整性逼到極限、連封裝內最後那段寄生電感都不能忍時，矽電容才變成「非用不可」。</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-mark">⎓ ⏚ ⊏⊐</div>
+    <p>從萊頓瓶的玻璃與銅棒，到 GPU 封裝裡 100 微米的矽晶圓——</p>
+    <p style="margin-top:6px">儲存電場、抗拒電流改變的兩個古老性格，仍在每一塊電路板上工作。</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var svg = document.getElementById('impedanceChart');
+  var NS = 'http://www.w3.org/2000/svg';
+  // plot area
+  var PL=90, PR=1000, PT=46, PB=370;       // axes box
+  var fMin=Math.log10(1e3), fMax=Math.log10(1e10); // 1kHz..10GHz
+  var zMin=Math.log10(0.001), zMax=Math.log10(10);  // 1mΩ..10Ω
+
+  function xOf(logf){ return PL + (logf-fMin)/(fMax-fMin)*(PR-PL); }
+  function yOf(logz){ return PB - (logz-zMin)/(zMax-zMin)*(PB-PT); }
+
+  // capacitor impedance: |Z| = sqrt(ESR^2 + (2πfL - 1/(2πfC))^2)
+  function zAt(f,C,L,ESR){
+    var w=2*Math.PI*f;
+    var x=w*L - 1/(w*C);
+    return Math.sqrt(ESR*ESR + x*x);
+  }
+  function curve(C,L,ESR){
+    var pts=[];
+    for(var lf=fMin; lf<=fMax+0.001; lf+=0.06){
+      var f=Math.pow(10,lf);
+      var z=zAt(f,C,L,ESR);
+      var lz=Math.log10(Math.max(z,1e-4));
+      lz=Math.max(zMin,Math.min(zMax,lz));
+      pts.push([xOf(lf),yOf(lz)]);
+    }
+    return pts;
+  }
+  function path(pts){ return pts.map(function(p,i){return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' '); }
+
+  function el(tag,attr){ var e=document.createElementNS(NS,tag); for(var k in attr) e.setAttribute(k,attr[k]); return e; }
+
+  function draw(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // grid + axes
+    var i;
+    for(i=fMin;i<=fMax;i++){
+      var gx=xOf(i);
+      svg.appendChild(el('line',{x1:gx,y1:PT,x2:gx,y2:PB,stroke:'#1c2735','stroke-width':1}));
+      var labels={3:'1k',4:'10k',5:'100k',6:'1M',7:'10M',8:'100M',9:'1G',10:'10G'};
+      if(labels[i]) { var tx=el('text',{x:gx,y:PB+22,fill:'#7a8aa0','font-family':'Courier New,monospace','font-size':12,'text-anchor':'middle'}); tx.textContent=labels[i]; svg.appendChild(tx); }
+    }
+    for(i=Math.ceil(zMin);i<=zMax;i++){
+      var gy=yOf(i);
+      svg.appendChild(el('line',{x1:PL,y1:gy,x2:PR,y2:gy,stroke:'#1c2735','stroke-width':1}));
+      var zl={ '-3':'1mΩ','-2':'10mΩ','-1':'100mΩ','0':'1Ω','1':'10Ω' };
+      if(zl[i]!==undefined){ var ty=el('text',{x:PL-10,y:gy+4,fill:'#7a8aa0','font-family':'Courier New,monospace','font-size':12,'text-anchor':'end'}); ty.textContent=zl[i]; svg.appendChild(ty); }
+    }
+    // axis frame
+    svg.appendChild(el('rect',{x:PL,y:PT,width:PR-PL,height:PB-PT,fill:'none',stroke:'#3a4b60','stroke-width':1.5}));
+    var axL=el('text',{x:34,y:(PT+PB)/2,fill:'#9fb0c6','font-family':'Courier New,monospace','font-size':12.5,'text-anchor':'middle',transform:'rotate(-90 34 '+((PT+PB)/2)+')'}); axL.textContent='阻抗 |Z|（越低越好）'; svg.appendChild(axL);
+    var axB=el('text',{x:(PL+PR)/2,y:PB+44,fill:'#9fb0c6','font-family':'Courier New,monospace','font-size':12.5,'text-anchor':'middle'}); axB.textContent='頻率 f（Hz）→'; svg.appendChild(axB);
+
+    // read controls
+    var c1v=+document.getElementById('c1').value;
+    var c2v=+document.getElementById('c2').value;
+    var eslv=+document.getElementById('esl').value;
+
+    var C1=Math.pow(10,-6 + (c1v/100)*1.4);    // ~1µF .. ~25µF
+    var C2=Math.pow(10,-8.3 + (c2v/100)*1.6);  // ~5nF .. ~200nF
+    var C3=2e-10;                               // 200 pF small
+    var L1=1.2e-9, L2=0.7e-9;
+    var L3=Math.pow(10,-10.6 + (eslv/100)*1.2); // ESL low..high for small cap
+    var ESR1=0.012, ESR2=0.03, ESR3=0.05;
+
+    document.getElementById('v-c1').textContent=(C1*1e6).toFixed(C1*1e6>=10?0:1)+' µF';
+    document.getElementById('v-c2').textContent=(C2*1e9).toFixed(0)+' nF';
+    document.getElementById('v-esl').textContent= eslv<33?'低':(eslv<66?'中':'高');
+
+    var p1=curve(C1,L1,ESR1), p2=curve(C2,L2,ESR2), p3=curve(C3,L3,ESR3);
+
+    // composite (parallel) envelope: 1/Ztot = sum 1/Zi  -> use min as approx of magnitude floor
+    var comp=[];
+    for(var k=0;k<p1.length;k++){
+      var lf=fMin + k*0.06; var f=Math.pow(10,lf);
+      var z1=zAt(f,C1,L1,ESR1),z2=zAt(f,C2,L2,ESR2),z3=zAt(f,C3,L3,ESR3);
+      var inv=1/z1+1/z2+1/z3; var zt=1/inv;
+      var lz=Math.max(zMin,Math.min(zMax,Math.log10(Math.max(zt,1e-4))));
+      comp.push([xOf(lf),yOf(lz)]);
+    }
+
+    svg.appendChild(el('path',{d:path(p1),fill:'none',stroke:'#7fc9b8','stroke-width':2.4,opacity:.85}));
+    svg.appendChild(el('path',{d:path(p2),fill:'none',stroke:'#e8c87a','stroke-width':2.4,opacity:.85}));
+    svg.appendChild(el('path',{d:path(p3),fill:'none',stroke:'#e08a5a','stroke-width':2.4,opacity:.85}));
+    svg.appendChild(el('path',{d:path(comp),fill:'none',stroke:'#9fb0c6','stroke-width':2.2,'stroke-dasharray':'6 5'}));
+
+    // mark SRF (minimum) of each
+    [[p1,'#7fc9b8'],[p2,'#e8c87a'],[p3,'#e08a5a']].forEach(function(pair){
+      var pts=pair[0], min=pts[0], mi=0;
+      for(var j=0;j<pts.length;j++){ if(pts[j][1]>min[1]){min=pts[j];mi=j;} } // larger y = lower z = valley
+      svg.appendChild(el('circle',{cx:min[0],cy:min[1],r:4,fill:pair[1]}));
+      var t=el('text',{x:min[0],y:min[1]+20,fill:pair[1],'font-family':'Courier New,monospace','font-size':11,'text-anchor':'middle'}); t.textContent='SRF'; svg.appendChild(t);
+    });
+
+    // region labels
+    var rl1=el('text',{x:150,y:80,fill:'#7a8aa0','font-family':'Courier New,monospace','font-size':12}); rl1.textContent='← 電容主導（阻抗隨頻率下降）'; svg.appendChild(rl1);
+    var rl2=el('text',{x:830,y:80,fill:'#7a8aa0','font-family':'Courier New,monospace','font-size':12,'text-anchor':'end'}); rl2.textContent='電感主導（過 SRF 後上升）→'; svg.appendChild(rl2);
+  }
+
+  ['c1','c2','esl'].forEach(function(id){ document.getElementById(id).addEventListener('input',draw); });
+  draw();
+})();
+</script>
+
+<!-- 嵌入用：把內文高度回報給外層 iframe，讓它自動撐高（見 EmbedFrame.astro） -->
+<script>
+(function(){
+  if (window.parent === window) return; // 直接開啟時不做事
+  function send(){
+    var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+    window.parent.postMessage({ type: 'embed-size', height: h }, '*');
+  }
+  window.addEventListener('load', send);
+  window.addEventListener('resize', send);
+  if (window.ResizeObserver) new ResizeObserver(send).observe(document.body);
+  setTimeout(send, 200); setTimeout(send, 1000);
+})();
+</script>
+
+</body>
+</html>

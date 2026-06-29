@@ -11,7 +11,7 @@
  */
 export const SITE = {
   /** 站名（瀏覽器標題、頁首、RSS） */
-  title: 'whereabouts notes',
+  title: 'Take my notes',
   /** 站點簡述（首頁、SEO、RSS） */
   description: '整理系統、韌體與底層工程的技術筆記。把讀過、踩過、想通的東西，一篇一篇寫清楚。',
   /** 作者名（footer、RSS、文章預設作者） */

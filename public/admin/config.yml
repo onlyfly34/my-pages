@@ -1,0 +1,56 @@
+backend:
+  name: github
+  repo: onlyfly34/my-pages
+  branch: main
+  # 自架在 Coolify 上的 OAuth proxy（git.skya.tw/onlyfly34/sveltia-cms-auth）。
+  # token 交換在這裡發生，client secret 不會曝露在前端。
+  base_url: https://cms-auth.skya.tw
+
+# 子路徑部署（/my-pages/）下，上傳的圖片 public 路徑要帶 base。
+media_folder: public/uploads
+public_folder: /my-pages/uploads
+
+# 後台介面語言
+locale: zh-TW
+
+collections:
+  - name: posts
+    label: 文章
+    label_singular: 文章
+    folder: src/content/posts
+    create: true
+    extension: mdx
+    format: frontmatter
+    slug: '{{slug}}'
+    summary: '{{title}}'
+    sortable_fields: [pubDate, title]
+    fields:
+      - { name: title, label: 標題, widget: string }
+      - { name: description, label: 簡述, widget: text }
+      - {
+          name: pubDate,
+          label: 發佈日期,
+          widget: datetime,
+          date_format: 'YYYY-MM-DD',
+          time_format: false,
+          picker_utc: false,
+        }
+      - {
+          name: updatedDate,
+          label: 更新日期,
+          widget: datetime,
+          date_format: 'YYYY-MM-DD',
+          time_format: false,
+          picker_utc: false,
+          required: false,
+        }
+      - { name: tags, label: 標籤, widget: list, required: false }
+      - { name: draft, label: 草稿（不發佈）, widget: boolean, default: false, required: false }
+      - { name: toc, label: 顯示目錄, widget: boolean, default: true, required: false }
+      - { name: heroImage, label: 首圖, widget: image, required: false }
+      - {
+          name: body,
+          label: 內文,
+          widget: markdown,
+          hint: '純文字 / Markdown 直接寫即可。內嵌互動元件（含 import、<Component/> 的 MDX）建議仍在 repo 裡手動編輯，避免後台改壞 JSX。',
+        }
